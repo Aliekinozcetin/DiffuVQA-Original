@@ -29,13 +29,22 @@ from dataclasses import dataclass
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from transformers.activations import ACT2FN
-from transformers.file_utils import (
-    ModelOutput,
-    add_code_sample_docstrings,
-    add_start_docstrings,
-    add_start_docstrings_to_model_forward,
-    replace_return_docstrings,
-)
+try:
+    from transformers.utils import (
+        ModelOutput,
+        add_code_sample_docstrings,
+        add_start_docstrings,
+        add_start_docstrings_to_model_forward,
+        replace_return_docstrings,
+    )
+except ImportError:
+    from transformers.file_utils import (
+        ModelOutput,
+        add_code_sample_docstrings,
+        add_start_docstrings,
+        add_start_docstrings_to_model_forward,
+        replace_return_docstrings,
+    )
 from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     BaseModelOutputWithPoolingAndCrossAttentions,
@@ -49,10 +58,13 @@ from transformers.modeling_outputs import (
 )
 from transformers.modeling_utils import (
     PreTrainedModel,
-    apply_chunking_to_forward,
     find_pruneable_heads_and_indices,
     prune_linear_layer,
 )
+try:
+    from transformers.pytorch_utils import apply_chunking_to_forward
+except ImportError:
+    from transformers.modeling_utils import apply_chunking_to_forward
 from transformers.models.bert.configuration_bert import BertConfig
 from transformers.utils import logging
 from diffuvqa.utils.init_weights import init_weights
