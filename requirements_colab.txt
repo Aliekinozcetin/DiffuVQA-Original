@@ -1,0 +1,18 @@
+# Colab / A100 dependencies — torch and torchvision are pre-installed in Colab
+bert-score
+blobfile
+nltk
+numpy
+packaging
+psutil
+PyYAML
+setuptools
+spacy
+torchmetrics
+tqdm
+transformers==4.22.2
+datasets
+timm
+open_clip_torch
+openpyxl
+pycocoevalcap

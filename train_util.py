@@ -109,7 +109,7 @@ class TrainLoop:
 
             self.ddp_model = self.model
         else:
-            if dist.get_world_size() > 1:
+            if dist.is_initialized() and dist.get_world_size() > 1:
                 logger.warn(
                     "Distributed training requires CUDA. "
                     "Gradients will not be synchronized properly!"

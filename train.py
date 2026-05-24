@@ -21,7 +21,6 @@ from basic_utils import (
 )
 from train_util import TrainLoop
 from transformers import set_seed
-import wandb
 
 import sys
 import os
@@ -30,10 +29,6 @@ from torchvision import transforms
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.append(current_dir)
-
-### custom your wandb setting here ###
-# os.environ["WANDB_API_KEY"] = ""
-os.environ["WANDB_MODE"] = "offline"
 
 
 def create_argparser():
@@ -44,10 +39,13 @@ def create_argparser():
     return parser
 
 def main():
-    args = create_argparser().parse_args()
-    set_seed(args.seed) 
+    parser = create_argparser()
+    args, unknown = parser.parse_known_args()
+    if unknown:
+        logger.log(f"### Warning: ignoring unknown args: {unknown}")
+    set_seed(args.seed)
     # dist_util.setup_dist()
-    logger.configure()
+    logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"])
     logger.log("### Creating data loader...")
 
     tokenizer = load_tokenizer(args)
@@ -71,16 +69,13 @@ def main():
 
     logger.log("### Creating model and diffusion...")
     print("use{}".format(args.model))
-    # print('#'*30, 'CUDA_VISIBLE_DEVICES', os.environ['CUDA_VISIBLE_DEVICES'])
     model, diffusion = create_model_and_diffusion(args=args)
-    # print('#'*30, 'cuda', dist_util.dev())
 
     if torch.cuda.device_count() > 1:
         print(f"Let's use {torch.cuda.device_count()} GPUs!")
         model = nn.DataParallel(model)
 
-    model.to(dist_util.dev()) #  DEBUG **
-    # model.cuda() #  DEBUG **
+    model.to(dist_util.dev())
 
     pytorch_total_params = sum(p.numel() for p in model.parameters())
 
@@ -91,13 +86,6 @@ def main():
     with open(f'{args.checkpoint_path}/training_args.json', 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
-    if ('LOCAL_RANK' not in os.environ) or (int(os.environ['LOCAL_RANK']) == 0):
-        wandb.init(
-            project=os.getenv("WANDB_PROJECT", "DiffuVQA"),
-            name=args.checkpoint_path,
-        )
-        wandb.config.update(args.__dict__, allow_val_change=True)
- 
     logger.log("### Training...")
 
     TrainLoop(
