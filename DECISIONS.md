@@ -4,9 +4,10 @@ Decisions are listed newest-first.
 
 ---
 
-## 2026-05-25 — JSONL `image_name` çift `imgs/` prefix hatası düzeltildi
+## 2026-05-25 — `vqa_datasets.py` çift `imgs/` prefix hatası düzeltildi
 
-**What:** Dataset indirme hücresinde `image_name` `"imgs/{img_id}.jpg"` olarak yazılıyordu. `vqa_datasets.py` satır 235'te `f'{image_root}/{image_name}'` ile birleştiriyor; `image_root` zaten `...Kvasir_VQA/imgs` olduğundan sonuç `imgs/imgs/xxx.jpg` → `FileNotFoundError`. Düzeltme: `image_name` artık sadece `"{img_id}.jpg"`. Mevcut Drive JSONL'lerini onarmak için de notebook'a bir temizleme hücresi eklendi.
+**What:** `ImageDataset.load_image_path` içindeki `f'{self.image_root}/{image_name}'` → `os.path.normpath(os.path.join(self.image_root, image_name))` olarak değiştirildi.
+**Why:** JSONL'deki `image_name` değerleri `"imgs/xxx.jpg"` formatında; `image_root` zaten `…/Kvasir_VQA/imgs` olunca sonuç `imgs/imgs/xxx.jpg` → `FileNotFoundError`. `os.path.join` + `normpath` ile path birleşimi OS-native ve prefix tekrarına karşı dayanıklı.
 
 ---
 

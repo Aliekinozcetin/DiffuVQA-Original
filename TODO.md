@@ -30,7 +30,7 @@
 - [x] `diffuvqa/utils/answer_pre.py` eksikti → DiffuVQA reposundan alınarak eklendi (`find_most_similar_answers`, difflib tabanlı)
 - [x] `basic_utils.py` HF_ENDPOINT bypass: `myTokenizer.__init__` ve `create_model_and_diffusion`'da BERT yüklemesi sırasında `HF_ENDPOINT` geçici kaldırılıyor (hf-mirror BERT servis etmiyor, `OSError` veriyordu)
 - [x] `train.py` + `sample_vqa_GPU.py` başındaki `HF_ENDPOINT=hf-mirror` set'i kaldırıldı — kök neden bu satırdı, BERT from_pretrained tüm process boyunca hf-mirror'a gidiyordu
-- [x] JSONL `image_name` çift `imgs/` prefix hatası düzeltildi: `"imgs/xxx.jpg"` → `"xxx.jpg"` (vqa_datasets.py zaten image_dir ile birleştiriyor); mevcut Drive JSONL'leri için notebook'a temizleme hücresi eklendi
+- [x] `vqa_datasets.py` `load_image_path` çift `imgs/` prefix hatası düzeltildi: `f'{image_root}/{image_name}'` → `os.path.normpath(os.path.join(...))` (JSONL'deki `imgs/` prefix ile `image_root` çakışıyordu → `FileNotFoundError`)
 
 ## Open (nice-to-have, not blocking)
 

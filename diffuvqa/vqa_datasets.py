@@ -232,7 +232,7 @@ class ImageDataset(Dataset):
     def load_image_path(self):
         image_path = []
         for image_name in self.data_lst['image_name']:
-            image_path.append(f'{self.image_root}/{image_name}')
+            image_path.append(os.path.normpath(os.path.join(self.image_root, image_name)))
         return image_path
 
     def __getitem__(self, idx):
