@@ -153,14 +153,16 @@ class TrainLoop:
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
         ema_checkpoint = find_ema_checkpoint(main_checkpoint, self.resume_step, rate)
         if ema_checkpoint:
-            if dist.get_rank() == 0:
+            rank = dist.get_rank() if dist.is_initialized() else 0
+            if rank == 0:
                 logger.log(f"loading EMA from checkpoint: {ema_checkpoint}...")
                 state_dict = dist_util.load_state_dict(
                     actual_model_path(ema_checkpoint), map_location=dist_util.dev()
                 )
                 ema_params = self._state_dict_to_master_params(state_dict)
 
-        dist_util.sync_params(ema_params)
+        if dist.is_initialized():
+            dist_util.sync_params(ema_params)
         return ema_params
 
     def _load_optimizer_state(self):
