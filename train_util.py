@@ -194,7 +194,7 @@ class TrainLoop:
         #     self.step += 1
         #     print(self.step)
         from tqdm import tqdm
-        pbar = tqdm(total=self.learning_steps, initial=self.step,
+        pbar = tqdm(total=self.learning_steps, initial=self.step + self.resume_step,
                     desc="Training", unit="step", dynamic_ncols=True)
         for epoch in range(self.learning_steps):
             for image, cond in self.data:
