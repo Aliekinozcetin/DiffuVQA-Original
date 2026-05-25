@@ -4,57 +4,117 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `bert_model.py` transformers import uyumluluğu (2. tur)
+
+**What:** `find_pruneable_heads_and_indices` ve `prune_linear_layer` da `modeling_utils`'den kaldırılmış. `apply_chunking_to_forward` ile birlikte üçü tek bir `try/except` bloğuna alındı: önce `transformers.pytorch_utils` denenir, yoksa `transformers.modeling_utils`.
+**Why:** `transformers>=4.36` bu üç yardımcıyı `pytorch_utils`'e taşıdı. Python 3.12 + yeni transformers kombinasyonunda `ImportError` veriyor. Mimari hiç değiştirilmedi.
+
+---
+
+## 2026-05-25 — `bert_model.py` + `requirements_colab.txt` + notebook path/arg düzeltmeleri
+
+**What:**
+- `bert_model.py`: `transformers.file_utils` → `transformers.utils` (try/except); `apply_chunking_to_forward` → `pytorch_utils` (try/except)
+- `requirements_colab.txt`: `transformers==4.22.2` → `>=4.36.0`
+- Notebook dataset-verify hücresi: JSONL yolu `datasets/*.jsonl` → `datasets/Kvasir_VQA/*.jsonl`
+- Notebook train-cell: `--data_dir` ve `--image_dir` argümanları eklendi (Drive mutlak yolları)
+
+**Why:** Colab Python 3.12 + transformers≥4.36 kombinasyonunda `transformers.file_utils` ve `modeling_utils`'deki bazı semboller kaldırıldı. `transformers==4.22.2` Python 3.12'de `tokenizers` wheel'ini derleyemiyor. JSONL'ler `datasets/Kvasir_VQA/` altında, doğrulama hücresi yanlış yeri arıyordu. `--data_dir`/`--image_dir` verilmeyince `vqa_datasets.py` config.json'daki relative path'i çalışma dizinine göre arıyordu.
+
+---
+
+## 2026-05-25 — `IMAGEFOLDER_NAME` düzeltme + `dataset-copy` iyileştirme
+
+**What:** `IMAGEFOLDER_NAME = "Kvasir_VQA/images"` → `"Kvasir_VQA/imgs"`. `resolve_dataset_image_source` boş klasörü geçerli kaynak saymayacak şekilde güncellendi. Drive'a kopyalama başarısız olursa `ACTIVE_IMAGE_DIR` direkt `DRIVE_IMAGE_DIR`'a fallback yapıyor. Sonunda görüntü sayısı yazdırılıyor.
+**Why:** Drive'daki gerçek klasör adı `imgs`; notebook `images` arıyordu, hiç bulamıyordu. Boş klasör kontrolü olmadan çalışma dizini boş `imgs/` klasörünü kaynak sanıyordu.
+
+---
+
+## 2026-05-25 — Dataset split + görüntü isimlendirme düzeltmesi
+
+**What:** HuggingFace Kvasir-VQA'nın tek split'i `raw` (58 849 soru, 6 500 benzersiz görüntü). `split_map`'teki `train/validation/test` isimleri yoktu, hiç görüntü kaydedilmedi. Düzeltme: `ds["raw"]` üzerinden okur, görüntüleri `img_id.jpg` ile kaydeder (tekrarsız), soru-cevap satırlarını `random.seed(42)` ile 80/10/10 böler.
+**Why:** Önceki kod `train/validation/test` split adlarını arıyordu; bunlar yoktu, 0 görüntü + boş JSONL oluştu.
+
+---
+
+## 2026-05-25 — HF parquet cache Drive'a yönlendirildi
+
+**What:** `HF_DATASETS_CACHE` ve `HF_HOME` → `Drive/DiffuVQA-Original/hf_cache/`. `load_dataset(..., cache_dir=DRIVE_HF_CACHE)` ile parquet dosyaları Drive'da kalıcı.
+**Why:** Session restart'ta parquet'lar `/root/.cache/`'den silinir, her seferinde 1.5 GB yeniden indirilir. Drive cache ile sadece görüntü → JPEG dönüşümü yapılır.
+
+---
+
+## 2026-05-25 — Kvasir-VQA indirme: Zenodo → HuggingFace
+
+**What:** Zenodo URL (`/records/10048817`) Kvasir-VQA değil, başka bir kayıt; 404 HTML dönüyor, `unzip` patlıyordu. HuggingFace `SimulaMet-HOST/Kvasir-VQA` (`datasets` kütüphanesi) ile değiştirildi.
+**Why:** Kvasir-VQA zip olarak Zenodo'da yok; resmi kayıt HuggingFace'de parquet formatında.
+
+---
+
+## 2026-05-25 — Kvasir-VQA dataset indirme hücresi eklendi
+
+**What:** Drive'da `imgs/` klasörü + `train.jsonl` varsa atlar; yoksa HuggingFace'den indirir, `Drive/DiffuVQA-Original/datasets/Kvasir_VQA/` altına kaydeder.
+**Why:** Kullanıcının her session'da dataset'i manuel yüklemesi gerekmemeli. Bir kere indirilip Drive'da kalmalı.
+
+---
+
+## 2026-05-25 — Clone hücresine `git log -3` eklendi
+
+**What:** Repo clone + Drive sync hücresine `git -C {LOCAL_CLONE_PATH} log -3 --oneline` satırı eklendi.
+**Why:** Clone sonrası hangi commit'te olduğu görülsün, yanlış branch/commit ile çalışılmasın.
+
+---
+
 ## 2026-05-25 — Notebook Bert branch yapısına uyarlandı + Drive path düzeltildi
 
 **What:** `notebooks/run_diffuvqa_colab.ipynb` Bert branch'teki (`Aliekinozcetin/DiffuVQA`) notebook yapısına birebir benzetildi.
-- Drive path `DiffuVQA` → `DiffuVQA-Original` olarak değiştirildi (iki repo aynı Drive klasörüne yazmasın)
+- Drive path `DiffuVQA` → `DiffuVQA-Original` (iki repo aynı klasöre yazmasın)
 - Repo URL `DiffuVQA-Original` reposuna çevrildi, branch `main`
-- Dil Türkçe yapıldı (markdown açıklamalar)
-- Büyük tek Config hücresi (tüm ayarlar tek yerden) + bölüm bazlı markdown sub-header yapısı
-- `resolve_dataset_image_source` ile çoklu Drive yolu deneme mantığı eklendi
-- Dataset görüntü kopyalama + doğrulama + önizleme hücreleri eklendi
-- `evaluate_and_export_csv` inline metrik fonksiyonu (BLEU, ROUGE-L, METEOR, CIDEr, BERTScore, F1)
-- Bölüm 5: CSV Drive'a kaydet + indir + matplotlib/seaborn görselleştirme
+- Dil Türkçe yapıldı
+- Büyük tek Config hücresi + bölüm bazlı markdown sub-header yapısı
+- `resolve_dataset_image_source` ile çoklu Drive yolu deneme mantığı
+- Dataset görüntü kopyalama + doğrulama + önizleme hücreleri
+- `evaluate_and_export_csv` inline metrik fonksiyonu
+- Bölüm 5: CSV Drive'a kaydet + indir + görselleştirme
 - `HF_ENDPOINT` geçici kaldırma bloğu BERT indirme hücresine taşındı
 
-**Why:** Kullanıcı mevcut DiffuVQA reposuyla (Drive'da `DiffuVQA` klasöründe) çalışıyor; yeni Original repo ayrı `DiffuVQA-Original` klasöründe tutulmalı. Notebook yapısının tutarlı olması farklı repolar arası geçişi kolaylaştırır.
+**Why:** Drive'daki `DiffuVQA` klasörüyle çakışmayı önlemek ve notebook yapısını diğer repoyla tutarlı tutmak.
 
 ---
 
 ## 2026-05-25 — Initial Colab/A100 compatibility pass
 
-### 1. `requirements_colab.txt` created
-**What:** New file listing only packages not pre-installed in Colab. Excludes `torch`, `torchvision`, `wandb`. Adds `timm`, `open_clip_torch`, `openpyxl`, `pycocoevalcap` which were missing from `requirements.txt`.
-**Why:** `pip install -r requirements.txt` in Colab re-installs torch (slow, can break CUDA version). Colab already has torch; we only need the gap packages.
+### 1. `requirements_colab.txt` oluşturuldu
+**What:** Colab'da önceden yüklü olmayan paketler. `torch`, `torchvision`, `wandb` hariç. `timm`, `open_clip_torch`, `openpyxl`, `pycocoevalcap` eklendi.
+**Why:** `pip install -r requirements.txt` Colab'da torch'u yeniden yükler, CUDA versiyonunu bozabilir.
 
-### 2. `wandb` removed from `train.py`
-**What:** Removed `import wandb`, `wandb.init()`, `wandb.config.update()`, and `os.environ["WANDB_MODE"] = "offline"` block entirely.
-**Why:** wandb requires authentication and network access; it adds unnecessary friction on Colab and is not needed for research training runs. All run metadata is already saved to `training_args.json`.
+### 2. `wandb` `train.py`'den kaldırıldı
+**What:** `import wandb`, `wandb.init()`, `wandb.config.update()`, `WANDB_MODE` bloğu tamamen silindi.
+**Why:** wandb kimlik doğrulama gerektiriyor, araştırma eğitimi için gereksiz. Tüm metadata zaten `training_args.json`'a kaydediliyor.
 
-### 3. `import wandb` removed from `diffuvqa/utils/logger.py`
-**What:** Removed the top-level `import wandb` line. The wandb integration in `dumpkvs()` was already commented out.
-**Why:** Importing wandb at module level causes `ModuleNotFoundError` if wandb is not installed (e.g., fresh Colab with only `requirements_colab.txt`). The import served no active purpose.
+### 3. `import wandb` `logger.py`'den kaldırıldı
+**What:** Top-level `import wandb` satırı silindi. `dumpkvs()` içindeki entegrasyon zaten comment'teydi.
+**Why:** Modül yüklenirken `ModuleNotFoundError` veriyordu.
 
-### 4. `logger.configure()` updated in `train.py`
-**What:** Changed `logger.configure()` → `logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"])`. Removed `"stdout"` from format_strs.
-**Why:** `stdout` format prints a full key-value table every `log_interval` steps, flooding the Colab cell output. `tqdm` step print already shows live progress. `log` and `csv` write `log.txt` and `progress.csv` to the checkpoint directory, which persists on Drive across session restarts.
+### 4. `logger.configure()` güncellendi
+**What:** `logger.configure()` → `logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"])`. `stdout` formatı kaldırıldı.
+**Why:** `stdout` her `log_interval`'da büyük tablo basıyor, Colab çıktısını dolduruyor. `log.txt` + `progress.csv` checkpoint klasöründe Drive'da kalıcı.
 
-### 5. `parse_known_args` in `train.py`
-**What:** `parser.parse_args()` → `parser.parse_known_args()[0]`, unknown args logged as warning.
-**Why:** Colab / Jupyter kernels inject extra flags (e.g., `--f=/root/.local/...`) into `sys.argv`. `parse_args()` crashes on unknown flags; `parse_known_args()` silently skips them.
+### 5. `parse_known_args` eklendi
+**What:** `parser.parse_args()` → `parser.parse_known_args()[0]`, bilinmeyenler loglanıyor.
+**Why:** Colab/Jupyter kernel `sys.argv`'ye ekstra flag enjekte ediyor, `parse_args()` crash veriyor.
 
-### 6. `dist.is_initialized()` guard in `train_util.py`
-**What:** Added `dist.is_initialized()` check before `dist.get_world_size()` in the `TrainLoop.__init__` else-branch.
-**Why:** On single-GPU Colab (no `dist.init_process_group` called), `dist.get_world_size()` raises `RuntimeError: Default process group has not been initialized`. The guard makes single-GPU runs safe without requiring `dist.init_process_group`.
+### 6. `dist.is_initialized()` guard eklendi
+**What:** `dist.get_world_size()` öncesine `dist.is_initialized()` kontrolü eklendi.
+**Why:** Tek GPU Colab'da `dist.init_process_group` çağrılmadan `get_world_size()` `RuntimeError` veriyor.
 
-### 7. `HF_ENDPOINT` already present in both scripts
-**What:** No change needed — `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'` already exists at the top of both `train.py` and `sample_vqa_GPU.py`.
-**Why:** Verified during scan. If hf-mirror fails for BERT weights, users can comment out this line in the Colab notebook config cell.
+### 7. `HF_ENDPOINT` zaten mevcut
+**What:** Her iki scriptte de `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'` zaten vardı, değişiklik gerekmedi.
 
-### 8. `notebooks/run_diffuvqa_colab.ipynb` created
-**What:** 4-section Colab notebook: Setup → Training → Sampling → Evaluation. Each section has a Config cell (all settings in one place) + an execution cell. Auto-detects latest checkpoint and output file.
-**Why:** Makes the project runnable end-to-end on A100 Colab without any shell access. Crash-resistant: each section independently re-mounts Drive and sets env vars.
+### 8. `notebooks/run_diffuvqa_colab.ipynb` oluşturuldu
+**What:** 4 bölümlü Colab notebook: Setup → Training → Sampling → Evaluation.
+**Why:** A100 Colab'da shell erişimi olmadan uçtan uca çalıştırılabilir olsun.
 
-### 9. `CLAUDE.md` created
-**What:** Codebase guide covering project summary, directory structure, common commands, architecture diagram, hyperparameter table, and protected files list.
-**Why:** Required by project rules; also useful for future contributors and AI assistants understanding the repo.
+### 9. `CLAUDE.md` oluşturuldu
+**What:** Proje özeti, dizin yapısı, komutlar, mimari diyagram, hiperparametre tablosu.
+**Why:** Gelecekteki katkıcılar ve AI asistanlar için kılavuz.
