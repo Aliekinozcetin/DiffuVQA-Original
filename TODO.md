@@ -27,6 +27,8 @@
 - [x] `transformers==4.22.2` → `>=4.36.0` yap (Python 3.12'de tokenizers build hatası)
 - [x] `bert_model.py` import uyumluluğu: `file_utils` → `utils`, `apply_chunking_to_forward` + `prune_linear_layer` → `pytorch_utils` (try/except), `find_pruneable_heads_and_indices` ayrı try/except + inline fallback (transformers>=4.40 uyumlu)
 
+- [x] `diffuvqa/utils/answer_pre.py` eksikti → DiffuVQA reposundan alınarak eklendi (`find_most_similar_answers`, difflib tabanlı)
+
 ## Open (nice-to-have, not blocking)
 
 - [ ] Eğitimi A100 Colab'da uçtan uca test et, `progress.csv` yazıldığını doğrula

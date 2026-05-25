@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `diffuvqa/utils/answer_pre.py` eklendi
+
+**What:** `vqa_model.py`'nin import ettiği `diffuvqa.utils.answer_pre` modülü repoda eksikti. `DiffuVQA` (diğer repo) `utils/` klasöründen alındı: `difflib.SequenceMatcher` tabanlı `find_most_similar_answers` fonksiyonu (dependency-free, lightweight).
+**Why:** `train.py` → `basic_utils.py` → `vqa_model.py` import zincirinde `ModuleNotFoundError` ile çöküyordu. Dosya orijinal repoda mevcut ama bu repoya eklenmemiş.
+
+---
+
 ## 2026-05-25 — `bert_model.py` `find_pruneable_heads_and_indices` inline fallback (3. tur)
 
 **What:** `find_pruneable_heads_and_indices` ayrı try/except zincirine alındı: önce `pytorch_utils`, sonra `modeling_utils`, ikisi de başarısız olursa inline implementasyon tanımlanıyor. `apply_chunking_to_forward` ve `prune_linear_layer` ise ayrı bir try/except ile yalnızca `pytorch_utils` → `modeling_utils` zincirini izliyor.
