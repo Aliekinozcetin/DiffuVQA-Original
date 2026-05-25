@@ -121,7 +121,7 @@ class feature_fusion(nn.Module):
         q_mask = (q_ids != 0).long().to(q_ids.device)
         q_input_shape = q_mask.size()
         question_emb = self.language_encoder(q_ids)
-        extended_q_masks = self.bert.get_extended_attention_mask(q_mask, q_input_shape, device=q_ids.device)
+        extended_q_masks = self.bert.get_extended_attention_mask(q_mask, q_input_shape)
         for layer in self.bert.encoder.layer:
             question_feats = layer(question_emb, extended_q_masks)[0]
         question_feats = self.question_feature_proj(question_feats)  # B 32 768

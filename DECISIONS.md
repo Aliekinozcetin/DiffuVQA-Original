@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `vqa_model.py` `get_extended_attention_mask` `device` kwarg kaldırıldı
+
+**What:** `vqa_model.py` satır 124'teki `self.bert.get_extended_attention_mask(q_mask, q_input_shape, device=q_ids.device)` çağrısından `device=` kwarg'ı kaldırıldı.
+**Why:** `transformers>=4.36`'da `ModuleUtilsMixin.get_extended_attention_mask()` imzasından `device` parametresi kaldırıldı; device artık attention_mask tensor'ından otomatik alınıyor. `TypeError: unexpected keyword argument 'device'` veriyordu. Model davranışı değişmiyor.
+
+---
+
 ## 2026-05-25 — `train_util.py` tek GPU'da `.module` AttributeError düzeltildi
 
 **What:** `_SingleGPUDDP` wrapper sınıfı eklendi (`th.nn.Module` subclass, `.module = model`). Tek GPU / CPU'da `DDP` yerine bu wrapper kullanılıyor. Çok GPU durumunda hâlâ gerçek `DDP` kullanılıyor.
