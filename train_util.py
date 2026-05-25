@@ -194,6 +194,8 @@ class TrainLoop:
         #     self.step += 1
         #     print(self.step)
         from tqdm import tqdm
+        pbar = tqdm(total=self.learning_steps, initial=self.step,
+                    desc="Training", unit="step", dynamic_ncols=True)
         for epoch in range(self.learning_steps):
             for image, cond in self.data:
                 self.run_step(image, cond)
@@ -202,15 +204,16 @@ class TrainLoop:
                 if self.eval_data is not None and self.step % self.eval_interval == 0:
                     batch_eval, cond_eval = next(self.eval_data)
                     self.forward_only(batch_eval, cond_eval)
-                    print('eval on validation set')
                     logger.dumpkvs()
                 if self.step > 0 and self.step % self.save_interval == 0:
                     self.save()
-                    # Run for a finite amount of time in integration tests.
                     if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
+                        pbar.close()
                         return
                 self.step += 1
-                print(f'Epoch: {epoch}, Step: {self.step}')
+                pbar.update(1)
+                pbar.set_postfix({"loss": f"{self._last_loss:.4f}"} if hasattr(self, "_last_loss") else {})
+        pbar.close()
         # Save the last checkpoint if it wasn't already saved.
         if (self.step - 1) % self.save_interval != 0:
             self.save()
@@ -224,7 +227,6 @@ class TrainLoop:
         self.log_step()
 
     def forward_only(self, image, cond):
-        print(self.batch_size)
         with th.no_grad():
             zero_grad(self.model_params)
             for i in range(0, image.shape[0], self.microbatch):
@@ -263,7 +265,7 @@ class TrainLoop:
                 log_loss_dict(
                     self.diffusion, t, {f"eval_{k}": v * weights for k, v in losses.items()}
                 )
-                print("eval loss:", loss.detach())
+                logger.logkv("eval_loss", loss.item())
 
     def forward_backward(self, image, cond):
         zero_grad(self.model_params)
@@ -294,6 +296,7 @@ class TrainLoop:
             )
 
         loss = (losses["loss"] * weights).mean()
+        self._last_loss = loss.item()
         log_loss_dict(
             self.diffusion, t, {k: v * weights for k, v in losses.items()}
         )
@@ -302,7 +305,6 @@ class TrainLoop:
             (loss * loss_scale).backward()
         else:
             loss.backward()
-        print("loss", loss.detach())
 
     def optimize_fp16(self):
         if any(not th.isfinite(p.grad).all() for p in self.model_params):

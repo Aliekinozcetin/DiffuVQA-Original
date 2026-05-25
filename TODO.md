@@ -37,6 +37,6 @@
 ## Open (nice-to-have, not blocking)
 
 - [ ] Eğitimi A100 Colab'da uçtan uca test et, `progress.csv` yazıldığını doğrula
-- [ ] `train_util.py` `run_loop`'una tqdm ekle (epoch/step progress bar)
+- [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle

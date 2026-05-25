@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `train_util.py` tqdm progress bar eklendi
+
+**What:** `run_loop`'taki `print(f'Epoch: {epoch}, Step: {self.step}')` ve `print("loss", ...)` satırları kaldırıldı. Yerine `tqdm` progress bar eklendi: toplam `learning_steps` adım, her step'te `loss=X.XXXX` postfix olarak gösteriliyor. `_last_loss` attribute'u `forward_backward`'da set ediliyor.
+**Why:** Her step ayrı satıra basılıyordu, Colab çıktısı doluyordu. Progress bar çok daha okunabilir.
+
+---
+
 ## 2026-05-25 — `vqa_model.py` `get_extended_attention_mask` `device` kwarg kaldırıldı
 
 **What:** `vqa_model.py` satır 124'teki `self.bert.get_extended_attention_mask(q_mask, q_input_shape, device=q_ids.device)` çağrısından `device=` kwarg'ı kaldırıldı.
