@@ -32,6 +32,7 @@ from basic_utils import (
 )
 
 torch.multiprocessing.set_sharing_strategy('file_system')
+from tqdm import tqdm
 
 def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
     """
@@ -131,7 +132,6 @@ def main():
     ])
 
     ## load data
-    print(args.batch_size)
     data_test = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args, model_emb=model_emb.cpu(),
                                transform=transform, split=args.split, loaded_vocab=tokenizer, loop=False)
 
@@ -166,7 +166,9 @@ def main():
     text_iterator = iter(all_text_data)
     image_iterator = iter(all_image_data)
 
-    for image, cond in zip(image_iterator, text_iterator):
+    total_batches = len(all_text_data)
+    pbar = tqdm(zip(image_iterator, text_iterator), total=total_batches, desc="Sampling", unit="batch")
+    for image, cond in pbar:
 
         if not cond:
             continue                                           
@@ -187,7 +189,6 @@ def main():
         # x_start_mean, _ = model.get_ddpm_inputs_mask(image, cond)
         fuse_feats, _ = model.get_ddpm_input(image, cond)  
         f = torch.cat([fuse_feats, fuse_feats], dim=1)
-        print(fuse_feats.shape)
         x_start = torch.cat([fuse_feats, input_emb], dim=1)
         # input_ids_mask = cond.pop('input_mask')
         input_ids_mask_ori = input_ids_mask
@@ -235,7 +236,6 @@ def main():
         #
         a_shape = sample.size(1) // 2
         sample = sample[:, a_shape:, :]
-        print(sample.shape)
         logits = model.get_logits(sample)  # bsz, seqlen, vocab
         cands = th.topk(logits, k=1, dim=-1)  # th.topk = get_knn
 
@@ -245,7 +245,6 @@ def main():
         qid_lst = []
         img_id_lst = []
 
-        print(cands.indices)
         for seq, input_mask in zip(cands.indices, input_ids_mask_ori):
             # len_x = args.seq_len * args.batch_size - th.sum(input_mask).item()
             seq = seq.to(th.device("cpu"))
