@@ -2,7 +2,9 @@
 Train a diffusion model on images.
 """
 import os
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+# HF_ENDPOINT is NOT set here: hf-mirror doesn't serve bert-base-uncased,
+# so setting it would break AutoTokenizer/BertModel.from_pretrained calls.
+# Dataset downloads that need the mirror are handled in the notebook before train.py runs.
 
 import argparse
 import torch.nn as nn

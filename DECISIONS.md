@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `train.py` + `sample_vqa_GPU.py` HF_ENDPOINT kaldırıldı
+
+**What:** `train.py` ve `sample_vqa_GPU.py`'nin başındaki `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'` satırları kaldırıldı. Yerine açıklayıcı bir yorum bırakıldı.
+**Why:** `HF_ENDPOINT=hf-mirror` set iken `AutoTokenizer.from_pretrained("bert-base-uncased")` ve `BertModel.from_pretrained(...)` hf-mirror'a gidip `FileMetadataError` → `OSError` ile patlıyor. hf-mirror BERT dosyalarını servis etmiyor. Dataset indirme (Kvasir-VQA) notebook hücresinde ayrıca yönetildiğinden `HF_ENDPOINT`'in script içinde set edilmesine gerek yok. `basic_utils.py`'deki pop/restore korundu (defense in depth).
+
+---
+
 ## 2026-05-25 — `basic_utils.py` HF_ENDPOINT bypass: tokenizer + model yüklemesi
 
 **What:** `myTokenizer.__init__` ve `create_model_and_diffusion` içinde `HF_ENDPOINT` geçici olarak `os.environ.pop` ile kaldırılıyor; BERT ağırlıkları/config'i doğrudan `huggingface.co`'dan indiriliyor. Yükleme bittikten sonra `HF_ENDPOINT` geri ekleniyor.
