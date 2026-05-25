@@ -4,6 +4,12 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — JSONL `image_name` çift `imgs/` prefix hatası düzeltildi
+
+**What:** Dataset indirme hücresinde `image_name` `"imgs/{img_id}.jpg"` olarak yazılıyordu. `vqa_datasets.py` satır 235'te `f'{image_root}/{image_name}'` ile birleştiriyor; `image_root` zaten `...Kvasir_VQA/imgs` olduğundan sonuç `imgs/imgs/xxx.jpg` → `FileNotFoundError`. Düzeltme: `image_name` artık sadece `"{img_id}.jpg"`. Mevcut Drive JSONL'lerini onarmak için de notebook'a bir temizleme hücresi eklendi.
+
+---
+
 ## 2026-05-25 — `train.py` + `sample_vqa_GPU.py` HF_ENDPOINT kaldırıldı
 
 **What:** `train.py` ve `sample_vqa_GPU.py`'nin başındaki `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'` satırları kaldırıldı. Yerine açıklayıcı bir yorum bırakıldı.
