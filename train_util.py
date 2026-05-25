@@ -25,6 +25,20 @@ from diffuvqa.step_sample import LossAwareSampler, UniformSampler
 INITIAL_LOG_LOSS_SCALE = 20.0
 
 
+class _SingleGPUDDP(th.nn.Module):
+    """Minimal DDP-compatible wrapper for single-GPU / CPU runs.
+
+    gaussian_diffusion.py calls model.model.module.* assuming DDP wrapping.
+    This wrapper exposes a .module attribute without requiring a process group.
+    """
+    def __init__(self, model):
+        super().__init__()
+        self.module = model
+
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
+
+
 class TrainLoop:
     def __init__(
             self,
@@ -103,19 +117,27 @@ class TrainLoop:
                 copy.deepcopy(self.master_params) for _ in range(len(self.ema_rate))
             ]
 
-        if th.cuda.is_available():  # DEBUG **
+        if th.cuda.is_available():
             self.use_ddp = True
             print(dist_util.dev())
-
-            self.ddp_model = self.model
-        else:
+            # gaussian_diffusion.py accesses model.model.module.* (DDP convention).
+            # On single-GPU Colab dist is not initialized, so wrap with DDP(device_ids=None)
+            # which gives a .module attribute without requiring a process group.
             if dist.is_initialized() and dist.get_world_size() > 1:
-                logger.warn(
-                    "Distributed training requires CUDA. "
-                    "Gradients will not be synchronized properly!"
+                self.ddp_model = DDP(
+                    self.model,
+                    device_ids=[dist_util.dev()],
+                    output_device=dist_util.dev(),
+                    broadcast_buffers=False,
+                    bucket_cap_mb=128,
+                    find_unused_parameters=False,
                 )
+            else:
+                # Single GPU: wrap in a lightweight shell so .module resolves correctly
+                self.ddp_model = _SingleGPUDDP(self.model)
+        else:
             self.use_ddp = False
-            self.ddp_model = self.model
+            self.ddp_model = _SingleGPUDDP(self.model)
 
     def _load_and_sync_parameters(self):
 

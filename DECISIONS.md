@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `train_util.py` tek GPU'da `.module` AttributeError düzeltildi
+
+**What:** `_SingleGPUDDP` wrapper sınıfı eklendi (`th.nn.Module` subclass, `.module = model`). Tek GPU / CPU'da `DDP` yerine bu wrapper kullanılıyor. Çok GPU durumunda hâlâ gerçek `DDP` kullanılıyor.
+**Why:** `gaussian_diffusion.py` `model.model.module.get_ddpm_input(...)` ile erişiyor — DDP convention'ını varsayıyor. Tek GPU Colab'da `dist.init_process_group` çağrılmadan gerçek `DDP` instantiate edilemez, model wrap edilmiyordu, `.module` attribute'u yoktu → `AttributeError`.
+
+---
+
 ## 2026-05-25 — `vqa_datasets.py` çift `imgs/` prefix hatası düzeltildi
 
 **What:** `ImageDataset.load_image_path` içindeki `f'{self.image_root}/{image_name}'` → `os.path.normpath(os.path.join(self.image_root, image_name))` olarak değiştirildi.
