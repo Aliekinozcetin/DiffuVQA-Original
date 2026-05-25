@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `bert_model.py` `find_pruneable_heads_and_indices` inline fallback (3. tur)
+
+**What:** `find_pruneable_heads_and_indices` ayrı try/except zincirine alındı: önce `pytorch_utils`, sonra `modeling_utils`, ikisi de başarısız olursa inline implementasyon tanımlanıyor. `apply_chunking_to_forward` ve `prune_linear_layer` ise ayrı bir try/except ile yalnızca `pytorch_utils` → `modeling_utils` zincirini izliyor.
+**Why:** `find_pruneable_heads_and_indices` transformers>=4.40'ta `pytorch_utils`'den de kaldırıldı. Önceki tek try/except bloğunda `pytorch_utils` import'u patlayınca (`find_pruneable` yoktu), fallback `modeling_utils` da `apply_chunking_to_forward`'ı oradan kaldırdığı için ikinci kez patlıyordu. Fonksiyon küçük (10 satır) ve stabil, inline tanımlamak güvenli.
+
+---
+
 ## 2026-05-25 — `bert_model.py` transformers import uyumluluğu (2. tur)
 
 **What:** `find_pruneable_heads_and_indices` ve `prune_linear_layer` da `modeling_utils`'den kaldırılmış. `apply_chunking_to_forward` ile birlikte üçü tek bir `try/except` bloğuna alındı: önce `transformers.pytorch_utils` denenir, yoksa `transformers.modeling_utils`.

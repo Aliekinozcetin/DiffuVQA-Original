@@ -25,7 +25,7 @@
 - [x] Eğitim hücresine `--data_dir` ve `--image_dir` argümanları ekle (Drive mutlak yolları)
 - [x] Clone hücresine `git log -3 --oneline` ekle (son 3 commit görünsün)
 - [x] `transformers==4.22.2` → `>=4.36.0` yap (Python 3.12'de tokenizers build hatası)
-- [x] `bert_model.py` import uyumluluğu: `file_utils` → `utils`, `apply_chunking_to_forward` + `find_pruneable_heads_and_indices` + `prune_linear_layer` → `pytorch_utils` (try/except ile geriye dönük uyumlu)
+- [x] `bert_model.py` import uyumluluğu: `file_utils` → `utils`, `apply_chunking_to_forward` + `prune_linear_layer` → `pytorch_utils` (try/except), `find_pruneable_heads_and_indices` ayrı try/except + inline fallback (transformers>=4.40 uyumlu)
 
 ## Open (nice-to-have, not blocking)
 
