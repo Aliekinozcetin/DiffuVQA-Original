@@ -28,6 +28,7 @@
 - [x] `bert_model.py` import uyumluluğu: `file_utils` → `utils`, `apply_chunking_to_forward` + `prune_linear_layer` → `pytorch_utils` (try/except), `find_pruneable_heads_and_indices` ayrı try/except + inline fallback (transformers>=4.40 uyumlu)
 
 - [x] `diffuvqa/utils/answer_pre.py` eksikti → DiffuVQA reposundan alınarak eklendi (`find_most_similar_answers`, difflib tabanlı)
+- [x] `basic_utils.py` HF_ENDPOINT bypass: `myTokenizer.__init__` ve `create_model_and_diffusion`'da BERT yüklemesi sırasında `HF_ENDPOINT` geçici kaldırılıyor (hf-mirror BERT servis etmiyor, `OSError` veriyordu)
 
 ## Open (nice-to-have, not blocking)
 

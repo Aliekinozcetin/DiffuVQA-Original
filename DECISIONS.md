@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-25 — `basic_utils.py` HF_ENDPOINT bypass: tokenizer + model yüklemesi
+
+**What:** `myTokenizer.__init__` ve `create_model_and_diffusion` içinde `HF_ENDPOINT` geçici olarak `os.environ.pop` ile kaldırılıyor; BERT ağırlıkları/config'i doğrudan `huggingface.co`'dan indiriliyor. Yükleme bittikten sonra `HF_ENDPOINT` geri ekleniyor.
+**Why:** `HF_ENDPOINT=https://hf-mirror.com` set iken `AutoTokenizer.from_pretrained("bert-base-uncased")` ve `BertModel.from_pretrained("bert-base-uncased")` çağrıları `hf-mirror`'a gidip `FileMetadataError` → `LocalEntryNotFoundError` → `OSError` zinciriyle çöküyor. hf-mirror BERT dosyalarını servis etmiyor. Notebook'taki `bert-cache` hücresi aynı bypass'ı yapıyor ama `train.py` subprocess olarak çalıştığında environment inherit ediyor, bypass devre dışı kalıyordu.
+
+---
+
 ## 2026-05-25 — `diffuvqa/utils/answer_pre.py` eklendi
 
 **What:** `vqa_model.py`'nin import ettiği `diffuvqa.utils.answer_pre` modülü repoda eksikti. `DiffuVQA` (diğer repo) `utils/` klasöründen alındı: `difflib.SequenceMatcher` tabanlı `find_most_similar_answers` fonksiyonu (dependency-free, lightweight).

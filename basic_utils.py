@@ -17,7 +17,11 @@ class myTokenizer():
     ################################################
     def __init__(self, args):
         if args.vocab == 'bert':
+            # hf-mirror doesn't serve BERT weights; bypass HF_ENDPOINT for this call
+            _hf_endpoint = os.environ.pop("HF_ENDPOINT", None)
             tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+            if _hf_endpoint:
+                os.environ["HF_ENDPOINT"] = _hf_endpoint
             self.tokenizer = tokenizer
             self.sep_token_id = tokenizer.sep_token_id
             self.pad_token_id = tokenizer.pad_token_id
@@ -103,6 +107,8 @@ def load_defaults_config():
 
 
 def create_model_and_diffusion(args):
+    # hf-mirror doesn't serve BERT config/weights; bypass HF_ENDPOINT for model init
+    _hf_endpoint = os.environ.pop("HF_ENDPOINT", None)
     # model = TransformerNetModel(
     #     input_dims=hidden_dim,
     #     output_dims=(hidden_dim if not learn_sigma else hidden_dim*2),
@@ -145,6 +151,9 @@ def create_model_and_diffusion(args):
         use_kl = args.use_kl,
         rescale_learned_sigmas=args.rescale_learned_sigmas
     )
+
+    if _hf_endpoint:
+        os.environ["HF_ENDPOINT"] = _hf_endpoint
 
     return model, diffusion
 
