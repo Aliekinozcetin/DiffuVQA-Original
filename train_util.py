@@ -140,8 +140,12 @@ class TrainLoop:
             self.ddp_model = _SingleGPUDDP(self.model)
 
     def _load_and_sync_parameters(self):
-
-        pass
+        main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        if main_checkpoint and bf.exists(main_checkpoint):
+            self.resume_step = parse_resume_step_from_filename(main_checkpoint)
+            logger.log(f"loading model from checkpoint: {main_checkpoint} (resume_step={self.resume_step})")
+            state_dict = dist_util.load_state_dict(main_checkpoint, map_location=dist_util.dev())
+            self.model.load_state_dict(state_dict, strict=False)
 
     def _load_ema_parameters(self, rate):
         ema_params = copy.deepcopy(self.master_params)
