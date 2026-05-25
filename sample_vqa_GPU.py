@@ -78,7 +78,8 @@ def main():
     training_args['batch_size'] = args.batch_size
     # Preserve CLI-provided sampling args that training_args.json would overwrite
     _keep = {k: args.__dict__[k] for k in ('model_path', 'out_dir', 'step', 'split',
-                                             'seed2', 'clamp_step', 'top_p')
+                                             'seed2', 'clamp_step', 'top_p',
+                                             'data_dir', 'image_dir')
              if k in args.__dict__}
     args.__dict__.update(training_args)
     args.__dict__.update(_keep)
