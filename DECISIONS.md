@@ -4,6 +4,55 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-26 — `sample_vqa_GPU.py` tqdm progress bar + tensor print'ler kaldırıldı
+
+**What:** `print(fuse_feats.shape)`, `print(sample.shape)`, `print(cands.indices)`, `print(args.batch_size)` satırları kaldırıldı. Ana sampling döngüsü `tqdm` ile sarıldı: `Sampling: 45%|████| 663/1472 [batch/s]`.
+**Why:** Her batch'te tensor boyutları ve raw indeks değerleri basılıyordu, çıktı okunamaz hale geliyordu.
+
+---
+
+## 2026-05-26 — `sample_vqa_GPU.py` `use_noising_f` AttributeError düzeltildi
+
+**What:** `if args.use_noising_f:` → `if getattr(args, 'use_noising_f', False):` olarak değiştirildi.
+**Why:** `use_noising_f` ne `config.json`'da ne argparse defaults'ta tanımlı; `training_args.json` update'inden sonra `args` namespace'inde hiç oluşmuyordu → `AttributeError`.
+
+---
+
+## 2026-05-26 — `sample_vqa_GPU.py` CLI `--data_dir` / `--image_dir` korunuyor
+
+**What:** `training_args.json` update sonrası `model_path`, `out_dir`, `data_dir`, `image_dir` gibi sampling-specific CLI argümanları `_keep` dict ile kaydedilip geri yükleniyor.
+**Why:** `args.__dict__.update(training_args)` tüm CLI argümanlarının üzerine yazıyordu. `model_path` training_args.json'daki eski relative path'e (`diffuvqa/config/ema_...`) dönüyordu → `FileNotFoundError`. Yeni session'da `image_dir` de silinmiş runtime path'e işaret ediyordu.
+
+---
+
+## 2026-05-26 — Notebook update hücresi düzeltildi (git → temp clone)
+
+**What:** "Güncelle" hücresi `git fetch/reset --hard` yerine geçici clone → Drive kopyala → temp sil mantığına çevrildi.
+**Why:** Drive klasöründe `.git` yok (clone hücresi `SKIP_DIRS` ile atlıyor), `git fetch` "not a git repository" hatası veriyordu.
+
+---
+
+## 2026-05-26 — `train_util.py` `dist.get_rank()` + `sync_params` guard eklendi
+
+**What:** `_load_ema_parameters` içindeki `dist.get_rank()` → `dist.get_rank() if dist.is_initialized() else 0`. `dist_util.sync_params(ema_params)` da `if dist.is_initialized():` koşuluna alındı.
+**Why:** Resume checkpoint yüklemesi aktif olunca `_load_ema_parameters` ilk kez gerçekten çalıştı; `dist.get_rank()` process group olmadan `ValueError` fırlatıyordu. İlk eğitimde `resume_checkpoint=""` olduğu için bu kod hiç execute edilmemişti.
+
+---
+
+## 2026-05-26 — `train_util.py` `_load_and_sync_parameters` düzeltildi + resume_step parse
+
+**What:** `_load_and_sync_parameters` sadece `pass` içeriyordu. Artık `resume_checkpoint` dosyasını yükleyip `parse_resume_step_from_filename` ile adım numarasını parse ediyor. tqdm `initial=self.step + self.resume_step` olarak güncellendi.
+**Why:** Checkpoint yüklenmiyordu, `self.resume_step=0` kalıyordu → tqdm bar 0'dan başlıyordu. Model ağırlıkları da yüklenmiyordu, eğitim sıfırdan devam ediyordu.
+
+---
+
+## 2026-05-26 — BATCH_SIZE=4, MICROBATCH=0 olarak sabitlendi
+
+**What:** `BATCH_SIZE=4`, `MICROBATCH=0` (kod `microbatch=0` → `batch_size` olarak yorumlar, gradient accumulation yok).
+**Why:** Orijinal repo değeri batch_size=20 ama A100'de güvenli başlangıç için 4. Microbatch=batch_size olduğunda gradient accumulation anlamsız, 0 ile devre dışı bırakıldı.
+
+---
+
 ## 2026-05-25 — `train_util.py` tqdm progress bar eklendi
 
 **What:** `run_loop`'taki `print(f'Epoch: {epoch}, Step: {self.step}')` ve `print("loss", ...)` satırları kaldırıldı. Yerine `tqdm` progress bar eklendi: toplam `learning_steps` adım, her step'te `loss=X.XXXX` postfix olarak gösteriliyor. `_last_loss` attribute'u `forward_backward`'da set ediliyor.
