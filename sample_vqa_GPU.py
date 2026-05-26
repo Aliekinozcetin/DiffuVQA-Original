@@ -137,15 +137,14 @@ def main():
 
     start_t = time.time()
 
-    model_base_name = os.path.basename(os.path.split(args.model_path)[0]) + f'.{os.path.split(args.model_path)[1]}'
-    out_dir = os.path.join(args.out_dir, f"{model_base_name.split('.ema')[0]}")
-    if not os.path.isdir(out_dir):
-        os.mkdir(out_dir)
+    # e.g. checkpoint: .../lr1e-05/ema_0.9999_200000.pt
+    # output:          out_dir/lr1e-05/ema_0.9999_200000.jsonl
+    lr_dir = os.path.basename(os.path.split(args.model_path)[0])
+    ckpt_name = os.path.splitext(os.path.basename(args.model_path))[0]  # ema_0.9999_200000
 
-    out_path = os.path.join(out_dir, f"ema{model_base_name.split('.ema')[1]}.samples")
-    if not os.path.isdir(out_path):
-        os.mkdir(out_path)
-    out_path = os.path.join(out_path, f"seed{args.seed2}_step{args.clamp_step}.jsonl")
+    out_dir = os.path.join(args.out_dir, lr_dir)
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"{ckpt_name}.jsonl")
 
     print("out_path:", out_path)
     print("batch_size:", args.batch_size)
