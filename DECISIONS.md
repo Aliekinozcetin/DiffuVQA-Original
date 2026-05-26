@@ -39,10 +39,10 @@ Decisions are listed newest-first.
 
 ---
 
-## 2026-05-26 — BATCH_SIZE=4, MICROBATCH=0 olarak sabitlendi
+## 2026-05-27 — BATCH_SIZE=64 (sampling), MICROBATCH=0
 
-**What:** `BATCH_SIZE=4`, `MICROBATCH=0` (kod `microbatch=0` → `batch_size` olarak yorumlar, gradient accumulation yok).
-**Why:** Orijinal repo değeri batch_size=20 ama A100'de güvenli başlangıç için 4. Microbatch=batch_size olduğunda gradient accumulation anlamsız, 0 ile devre dışı bırakıldı.
+**What:** `BATCH_SIZE=64`, `MICROBATCH=0`. Eğitim sırasında OOM olursa düşürülebilir.
+**Why:** batch_size=4 ile sampling ~1.2 saat (1471 batch × 2.84s/batch) sürüyordu. 64'e çıkınca ~4 dakikaya iniyor. Sampling kalitesi batch size'dan etkilenmiyor.
 
 ---
 
