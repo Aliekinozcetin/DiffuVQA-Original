@@ -112,9 +112,18 @@ class JSONOutputFormat(KVWriter):
 
 class CSVOutputFormat(KVWriter):
     def __init__(self, filename):
-        self.file = open(filename, "w+t")
+        # append mode: resume training doesn't wipe previous progress
+        file_exists = os.path.isfile(filename)
+        self.file = open(filename, "a+t")
         self.keys = []
         self.sep = ","
+        # read existing header so new rows align with existing columns
+        if file_exists:
+            self.file.seek(0)
+            first_line = self.file.readline()
+            if first_line:
+                self.keys = first_line.strip().split(self.sep)
+            self.file.seek(0, 2)  # seek to end for appending
 
     def writekvs(self, kvs):
         # Add our current row to the history

@@ -231,38 +231,54 @@ def main():
             gap=step_gap
         )
 
-        sample = samples[-1]  
-        #
+        sample = samples[-1]
         a_shape = sample.size(1) // 2
         sample = sample[:, a_shape:, :]
         logits = model.get_logits(sample)  # bsz, seqlen, vocab
-        cands = th.topk(logits, k=1, dim=-1)  # th.topk = get_knn
+        cands = th.topk(logits, k=1, dim=-1)
+
+        # confidence: mean top-1 softmax probability per sequence
+        probs = th.softmax(logits, dim=-1)  # bsz, seqlen, vocab
+        confidence_per_seq = probs.gather(-1, cands.indices).squeeze(-1).mean(dim=-1)  # bsz
+
+        # avg_nn_l2: mean L2 distance between sample embeddings and their nearest vocab embeddings
+        vocab_emb = model_emb.weight  # vocab_size, hidden_dim
+        # sample: bsz, seqlen, hidden_dim; nearest token embedding per position
+        nearest_emb = vocab_emb[cands.indices.squeeze(-1)]  # bsz, seqlen, hidden_dim
+        l2_per_seq = (sample - nearest_emb).norm(dim=-1).mean(dim=-1)  # bsz
 
         word_lst_recover = []
         word_lst_ref = []
         word_lst_source = []
-        qid_lst = []
-        img_id_lst = []
+        confidence_lst = []
+        avg_nn_l2_lst = []
 
-        for seq, input_mask in zip(cands.indices, input_ids_mask_ori):
-            # len_x = args.seq_len * args.batch_size - th.sum(input_mask).item()
+        for seq, input_mask, conf, l2 in zip(cands.indices, input_ids_mask_ori,
+                                              confidence_per_seq, l2_per_seq):
             seq = seq.to(th.device("cpu"))
-            len_x = args.seq_len
             tokens = tokenizer.decode_token(seq)
             word_lst_recover.append(tokens)
+            confidence_lst.append(round(conf.item(), 6))
+            avg_nn_l2_lst.append(round(l2.item(), 6))
 
         for seq, input_mask in zip(input_ids_x, input_ids_mask_ori):
-            # len_x = args.seq_len - sum(input_mask).item()
             seq = seq.to(th.device("cpu"))
             len_x = args.seq_len
             word_lst_source.append(tokenizer.decode_token(seq[:len_x]))
             word_lst_ref.append(tokenizer.decode_token(seq[len_x:]))
 
         fout = open(out_path, 'a')
-        for (recov, ref, src, image_name) in zip(word_lst_recover, word_lst_ref, word_lst_source, image_name):
-            print(json.dumps(
-                {"image_name": image_name, "question": src, "reference_answer": ref, "generate_answer": recov}),
-                  file=fout)
+        for (recov, ref, src, img_name, conf, l2) in zip(
+                word_lst_recover, word_lst_ref, word_lst_source, image_name,
+                confidence_lst, avg_nn_l2_lst):
+            print(json.dumps({
+                "image_name": img_name,
+                "question": src,
+                "reference_answer": ref,
+                "generate_answer": recov,
+                "confidence": conf,
+                "avg_nn_l2": l2,
+            }), file=fout)
         fout.close()
         # break
         #
