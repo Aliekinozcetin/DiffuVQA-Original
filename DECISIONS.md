@@ -25,13 +25,6 @@ Decisions are listed newest-first.
 
 ---
 
-## 2026-05-26 — Notebook update hücresi düzeltildi (git → temp clone)
-
-**What:** "Güncelle" hücresi `git fetch/reset --hard` yerine geçici clone → Drive kopyala → temp sil mantığına çevrildi.
-**Why:** Drive klasöründe `.git` yok (clone hücresi `SKIP_DIRS` ile atlıyor), `git fetch` "not a git repository" hatası veriyordu.
-
----
-
 ## 2026-05-26 — `train_util.py` `dist.get_rank()` + `sync_params` guard eklendi
 
 **What:** `_load_ema_parameters` içindeki `dist.get_rank()` → `dist.get_rank() if dist.is_initialized() else 0`. `dist_util.sync_params(ema_params)` da `if dist.is_initialized():` koşuluna alındı.
