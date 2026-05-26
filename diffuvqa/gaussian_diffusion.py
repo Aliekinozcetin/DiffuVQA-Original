@@ -514,7 +514,6 @@ class GaussianDiffusion:
             indices = tqdm(indices)
 
         for i in indices:  # from T to 0
-            print(i)
             t = th.tensor([i] * shape[0], device=device)
             if not clamp_first:
                 if i > clamp_step:
@@ -896,7 +895,6 @@ class GaussianDiffusion:
             indices = tqdm(indices)
 
         for i in indices:
-            print(i)
             t = th.tensor([i] * shape[0], device=device)
             with th.no_grad():
                 out = self.ddim_sample(
