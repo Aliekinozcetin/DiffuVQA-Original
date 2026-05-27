@@ -185,7 +185,7 @@ class TransformerNetModel(nn.Module):
             hidden_t_dim,
             dropout=0,
             config=None,
-            config_name='bert-base-uncased',
+            config_name='microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext',
             vocab_size=None,
             init_pretrained='no',
             logits_mode=1,

@@ -19,7 +19,7 @@ class myTokenizer():
         if args.vocab == 'bert':
             # hf-mirror doesn't serve BERT weights; bypass HF_ENDPOINT for this call
             _hf_endpoint = os.environ.pop("HF_ENDPOINT", None)
-            tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+            tokenizer = AutoTokenizer.from_pretrained("microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext")
             if _hf_endpoint:
                 os.environ["HF_ENDPOINT"] = _hf_endpoint
             self.tokenizer = tokenizer
@@ -130,7 +130,7 @@ def create_model_and_diffusion(args):
         output_dims=768,
         hidden_t_dim=128,
         dropout=0.1,
-        config_name="bert-base-uncased",
+        config_name="microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
         vocab_size=30522,
         init_pretrained="bert",
         args=args
