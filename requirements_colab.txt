@@ -4,6 +4,8 @@ blobfile
 nltk
 numpy
 packaging
+pillow
+pandas
 psutil
 PyYAML
 setuptools
@@ -16,3 +18,4 @@ timm
 open_clip_torch
 openpyxl
 pycocoevalcap
+scikit-learn
