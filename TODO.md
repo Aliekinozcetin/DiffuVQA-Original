@@ -33,6 +33,12 @@
 - [x] `vqa_model.py` `get_extended_attention_mask` `device=` kwarg kaldırıldı (transformers>=4.36 imza değişikliği, `TypeError` veriyordu)
 - [x] `train_util.py` `_SingleGPUDDP` wrapper eklendi: tek GPU'da `model.model.module.*` erişimi (`gaussian_diffusion.py`) `AttributeError` veriyordu, `.module` attribute'unu expose eden minimal wrapper ile düzeltildi
 - [x] `vqa_datasets.py` `load_image_path` çift `imgs/` prefix hatası düzeltildi: `f'{image_root}/{image_name}'` → `os.path.normpath(os.path.join(...))` (JSONL'deki `imgs/` prefix ile `image_root` çakışıyordu → `FileNotFoundError`)
+- [x] `gaussian_diffusion.py` `p_sample_loop` + `ddim_sample_loop` içindeki `print(i)` kaldırıldı (her timestep basılıyordu, tqdm varken çıktıyı dolduruyordu)
+- [x] `sample_vqa_GPU.py` çıktı yolu sadeleştirildi: `out_dir/lr1e-05/ema_0.9999_200000.jsonl` (eski: `*.pt.samples/seed105_step0.jsonl`)
+- [x] `sample_vqa_GPU.py` her JSONL satırına `confidence` ve `avg_nn_l2` eklendi
+- [x] `logger.py` `CSVOutputFormat` + `configure()`: sıfırdan eğitimde `progress.csv` temizlenir, resume'da append edilir (`append_csv` parametresi)
+- [x] Notebook `evaluate_and_export_csv` dataset yolu düzeltildi: `"datasets/test.jsonl"` hardcoded → `DRIVE_PROJECT_PATH/datasets/DATASET/test.jsonl`
+- [x] Notebook `BATCH_SIZE` → `TRAIN_BATCH_SIZE=4` + `SAMPLE_BATCH_SIZE=64` olarak ayrıldı (batch_size=64 eğitimi ~7x yavaşlatıyordu)
 
 ## Open (nice-to-have, not blocking)
 

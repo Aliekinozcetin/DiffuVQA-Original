@@ -4,6 +4,48 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-27 — TRAIN_BATCH_SIZE=4, SAMPLE_BATCH_SIZE=64 olarak ayrıldı
+
+**What:** Notebook config hücresinde `BATCH_SIZE` tek değişken yerine `TRAIN_BATCH_SIZE=4` ve `SAMPLE_BATCH_SIZE=64` olarak ikiye ayrıldı. `train-cell` → `TRAIN_BATCH_SIZE`, `sample-cell` → `SAMPLE_BATCH_SIZE` kullanıyor.
+**Why:** `BATCH_SIZE=64` hem eğitim hem sampling'e uygulanınca eğitim ~7x yavaşladı (10h → 70h). Büyük batch eğitimde gradient gürültüsünü azaltır, genellemeyi düşürür; sampling'de ise bellek baskısı olmadığından 64 güvenli.
+
+---
+
+## 2026-05-27 — Notebook `evaluate_and_export_csv` dataset yolu düzeltildi
+
+**What:** `dataset_file` parametresi `"datasets/test.jsonl"` hardcoded'dan `None` default'a çevrildi. Runtime'da `DRIVE_PROJECT_PATH/datasets/DATASET/test.jsonl` olarak çözümleniyor.
+**Why:** Relative path cwd'ye bağlıydı; `DRIVE_PROJECT_PATH` altında çalışırken `datasets/Kvasir_VQA/test.jsonl` bulunamıyordu → `[Errno 2] No such file or directory`.
+
+---
+
+## 2026-05-27 — `logger.py` progress.csv: sıfırdan eğitimde temizle, resume'da devam et
+
+**What:** `CSVOutputFormat.__init__` `append` parametresi aldı. `logger.configure()` `append_csv=True/False` parametresi aldı. `train.py`'de `resume_checkpoint` set ise `append_csv=True`, boşsa `False` geçiliyor.
+**Why:** `open(filename, "w+t")` her `logger.configure()` çağrısında dosyayı siliyordu. Resume'da önceki eğitim kayıtları kayboluyordu; Drive'dan indirilen `progress.csv` boş geliyordu.
+
+---
+
+## 2026-05-27 — `sample_vqa_GPU.py` confidence + avg_nn_l2 eklendi
+
+**What:** Her JSONL satırına `confidence` (ortalama top-1 softmax olasılığı) ve `avg_nn_l2` (denoised embedding ile en yakın vocab embedding arası ortalama L2 mesafesi) alanları eklendi.
+**Why:** Sampling kalitesini per-sample düzeyde ölçmek için. Düşük confidence veya yüksek avg_nn_l2 rounding kalitesinin bozuk olduğunu gösterir.
+
+---
+
+## 2026-05-27 — `sample_vqa_GPU.py` çıktı yolu sadeleştirildi
+
+**What:** Eski: `out_dir/lr1e-05/ema_0.9999_200000.pt.samples/seed105_step0.jsonl`. Yeni: `out_dir/lr1e-05/ema_0.9999_200000.jsonl`.
+**Why:** `.samples` alt klasörü gereksiz iç içe yapı yaratıyordu. Checkpoint adı doğrudan dosya adı olunca hangi step'ten üretildiği okunabilir.
+
+---
+
+## 2026-05-27 — `gaussian_diffusion.py` `print(i)` kaldırıldı
+
+**What:** `p_sample_loop` ve `ddim_sample_loop` içindeki `print(i)` satırları kaldırıldı.
+**Why:** Her diffusion timestep'i (2499→0) ayrı satıra basılıyordu, tqdm bar varken de Colab çıktısını sayı sütunlarıyla dolduruyordu.
+
+---
+
 ## 2026-05-26 — `sample_vqa_GPU.py` tqdm progress bar + tensor print'ler kaldırıldı
 
 **What:** `print(fuse_feats.shape)`, `print(sample.shape)`, `print(cands.indices)`, `print(args.batch_size)` satırları kaldırıldı. Ana sampling döngüsü `tqdm` ile sarıldı: `Sampling: 45%|████| 663/1472 [batch/s]`.
@@ -39,12 +81,6 @@ Decisions are listed newest-first.
 
 ---
 
-## 2026-05-27 — BATCH_SIZE=64 (sampling), MICROBATCH=0
-
-**What:** `BATCH_SIZE=64`, `MICROBATCH=0`. Eğitim sırasında OOM olursa düşürülebilir.
-**Why:** batch_size=4 ile sampling ~1.2 saat (1471 batch × 2.84s/batch) sürüyordu. 64'e çıkınca ~4 dakikaya iniyor. Sampling kalitesi batch size'dan etkilenmiyor.
-
----
 
 ## 2026-05-25 — `train_util.py` tqdm progress bar eklendi
 
