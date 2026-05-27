@@ -39,6 +39,7 @@
 - [x] `logger.py` `CSVOutputFormat` + `configure()`: sıfırdan eğitimde `progress.csv` temizlenir, resume'da append edilir (`append_csv` parametresi)
 - [x] Notebook `evaluate_and_export_csv` dataset yolu düzeltildi: `"datasets/test.jsonl"` hardcoded → `DRIVE_PROJECT_PATH/datasets/DATASET/test.jsonl`
 - [x] Notebook `BATCH_SIZE` → `TRAIN_BATCH_SIZE=4` + `SAMPLE_BATCH_SIZE=64` olarak ayrıldı (batch_size=64 eğitimi ~7x yavaşlatıyordu)
+- [x] `logger.py` `dumpkvs()` writekvs döngüsü uncomment edildi — wandb kaldırılırken yanlışlıkla comment'e alınmıştı, progress.csv hiç yazılmıyordu
 
 ## Open (nice-to-have, not blocking)
 
