@@ -40,6 +40,17 @@
 - [x] Notebook `evaluate_and_export_csv` dataset yolu düzeltildi: `"datasets/test.jsonl"` hardcoded → `DRIVE_PROJECT_PATH/datasets/DATASET/test.jsonl`
 - [x] Notebook `BATCH_SIZE` → `TRAIN_BATCH_SIZE=4` + `SAMPLE_BATCH_SIZE=64` olarak ayrıldı (batch_size=64 eğitimi ~7x yavaşlatıyordu)
 
+## PubMedBERT Branch — Tamamlanan
+
+- [x] `diffuvqa/config.json` → `config_name` + `language_encoder_name` PubMedBERT'e güncellendi (`microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext`)
+- [x] `diffuvqa/config/training_args.json` → `config_name` + `language_encoder_name` PubMedBERT'e güncellendi
+- [x] `basic_utils.py` → `myTokenizer.__init__` `AutoTokenizer` + `create_model_and_diffusion` `TransformerNetModel` çağrısı PubMedBERT'e güncellendi
+- [x] `diffuvqa/vqa_model.py` → `TransformerNetModel` default `config_name` PubMedBERT'e güncellendi
+- [x] `diffuvqa/vqa_datasets.py` → `__main__` argparse `--config_name` default PubMedBERT'e güncellendi
+- [x] Notebook config hücresi: `BRANCH=pubmedbert`, `MODEL_NAME=pubmedbert`, `MODEL_LABEL=DiffuVQA-PubMedBERT`, `DRIVE_PROJECT_PATH=DiffuVQA-PubMedBERT`, `RESUME_CHECKPOINT=""` (sıfırdan eğitim)
+- [x] Notebook BERT cache hücresi: `BertTokenizer`/`BertModel` → `AutoTokenizer`/`AutoModel` + PubMedBERT model adı, mesaj güncellendi
+- [x] Notebook config header: `DiffuVQA PubMedBERT` olarak güncellendi
+
 ## Open (nice-to-have, not blocking)
 
 - [ ] Eğitimi A100 Colab'da uçtan uca test et, `progress.csv` yazıldığını doğrula

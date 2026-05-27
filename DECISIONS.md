@@ -4,6 +4,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-27 — pubmedbert branch: dil encoder PubMedBERT'e geçirildi
+
+**What:** `config_name` ve `language_encoder_name` tüm config/kaynak dosyalarında `bert-base-uncased` → `microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext` olarak güncellendi. Etkilenen dosyalar: `diffuvqa/config.json`, `diffuvqa/config/training_args.json`, `basic_utils.py` (`myTokenizer.__init__` + `create_model_and_diffusion`), `diffuvqa/vqa_model.py` (`TransformerNetModel` default), `diffuvqa/vqa_datasets.py` (argparse default). Notebook: `BRANCH=pubmedbert`, `MODEL_NAME=pubmedbert`, `MODEL_LABEL=DiffuVQA-PubMedBERT`, `DRIVE_PROJECT_PATH=DiffuVQA-PubMedBERT`, BERT cache hücresi `AutoTokenizer`/`AutoModel` + PubMedBERT adıyla güncellendi.
+**Why:** PubMedBERT (Microsoft) sıfırdan yalnızca PubMed full-text üzerinde pre-train edilmiş; genel corpus'tan fine-tune edilen modellere (BioBERT dahil) göre biyomedikal NLP benchmark'larında daha yüksek performans gösteriyor. Uncased tokenizer → `vocab_size=30522`, mimari değişmiyor, yalnızca encoder ağırlıkları farklı.
+**Akademik not:** Kontrollü karşılaştırma için `LEARNING_STEPS`, `LR`, `BATCH_SIZE`, `DIFFUSION_STEPS`, `SEQ_LEN` ve dataset split (`random.seed(42)`) diğer branch'lerle aynı tutulmalı.
+
+---
+
 ## 2026-05-27 — TRAIN_BATCH_SIZE=4, SAMPLE_BATCH_SIZE=64 olarak ayrıldı
 
 **What:** Notebook config hücresinde `BATCH_SIZE` tek değişken yerine `TRAIN_BATCH_SIZE=4` ve `SAMPLE_BATCH_SIZE=64` olarak ikiye ayrıldı. `train-cell` → `TRAIN_BATCH_SIZE`, `sample-cell` → `SAMPLE_BATCH_SIZE` kullanıyor.
