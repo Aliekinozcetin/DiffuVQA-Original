@@ -67,7 +67,9 @@ def create_argparser():
 @th.no_grad()
 def main():
 
-    args = create_argparser().parse_args()
+    args, unknown = create_argparser().parse_known_args()
+    if unknown:
+        logger.log(f"### Warning: ignoring unknown args: {unknown}")
 
     logger.configure()
 

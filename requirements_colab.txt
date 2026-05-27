@@ -12,6 +12,9 @@ torchmetrics
 tqdm
 transformers>=4.36.0
 datasets
+pillow
+pandas
+scikit-learn
 timm
 open_clip_torch
 openpyxl
