@@ -291,7 +291,7 @@ if __name__ == "__main__":
     parser.add_argument('--image_dir', type=str, default='datasets/Med_RAD/image_folder')
     parser.add_argument('--vocab_path', type=str, default='datasets/vocab.json')
     parser.add_argument('--vocab', type=str, default='bert')
-    parser.add_argument('--config_name', type=str, default='bert-base-uncased')
+    parser.add_argument('--config_name', type=str, default='dmis-lab/biobert-base-cased-v1.2')
     parser.add_argument('--checkpoint_path', type=str, default='diffuvqa/config')
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--seq_len', type=int, default=64)
