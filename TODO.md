@@ -1,48 +1,55 @@
-# TODO — DiffuVQA Colab/A100 Compatibility
+# TODO.md — DiffuVQA-Original (Branch: biobert)
 
-## Completed
+Tamamlanan maddeler [x], bekleyenler [ ] olarak işaretlenir. Her değişiklikte bu dosya güncellenir.
 
-- [x] Create `requirements_colab.txt` (torch/torchvision excluded, wandb excluded, timm/open_clip/openpyxl/pycocoevalcap added)
-- [x] Remove `import wandb`, `wandb.init()`, `wandb.config.update()`, `WANDB_MODE` from `train.py`
-- [x] Remove `import wandb` from `diffuvqa/utils/logger.py`
-- [x] Fix `logger.configure()` in `train.py` → `dir=args.checkpoint_path, format_strs=["log", "csv"]`
-- [x] Change `parser.parse_args()` → `parser.parse_known_args()[0]` in `train.py`
-- [x] Add `dist.is_initialized()` guard before `dist.get_world_size()` in `train_util.py`
-- [x] Verify `HF_ENDPOINT` already set in both `train.py` and `sample_vqa_GPU.py`
-- [x] Create `notebooks/run_diffuvqa_colab.ipynb` (5 sections: Setup / Train / Sample / Eval / Download)
-- [x] Create `CLAUDE.md`
-- [x] Create `DECISIONS.md`
-- [x] Create `TODO.md`
-- [x] Drive path'i `DiffuVQA-Original` olarak düzelt (DiffuVQA ile çakışmasın)
-- [x] Notebook yapısını Bert branch formatına uyarla (Config hücresi + Türkçe sub-header'lar + dataset copy + CSV export + görselleştirme)
-- [x] Kvasir-VQA dataset indirme hücresi ekle (Drive'da varsa atla, yoksa HuggingFace'den indir)
-- [x] Zenodo URL hatası düzelt → HuggingFace `SimulaMet-HOST/Kvasir-VQA` kullan (`raw` split)
-- [x] HF parquet cache'ini Drive'a yönlendir (`hf_cache/`) — bir daha indirilmesin
-- [x] Dataset split düzelt: `raw` split'ten 80/10/10 train/valid/test JSONL oluştur, görüntüleri `img_id.jpg` ile kaydet
-- [x] `IMAGEFOLDER_NAME` düzelt: `images` → `imgs` (config.json ile eşitle)
-- [x] `dataset-copy` hücresine boş klasör kontrolü + Drive fallback ekle
-- [x] Dataset doğrulama hücresini düzelt: JSONL yolu `datasets/Kvasir_VQA/` olarak güncelle
-- [x] Eğitim hücresine `--data_dir` ve `--image_dir` argümanları ekle (Drive mutlak yolları)
-- [x] Clone hücresine `git log -3 --oneline` ekle (son 3 commit görünsün)
-- [x] `transformers==4.22.2` → `>=4.36.0` yap (Python 3.12'de tokenizers build hatası)
-- [x] `bert_model.py` import uyumluluğu: `file_utils` → `utils`, `apply_chunking_to_forward` + `prune_linear_layer` → `pytorch_utils` (try/except), `find_pruneable_heads_and_indices` ayrı try/except + inline fallback (transformers>=4.40 uyumlu)
+---
 
-- [x] `diffuvqa/utils/answer_pre.py` eksikti → DiffuVQA reposundan alınarak eklendi (`find_most_similar_answers`, difflib tabanlı)
-- [x] `basic_utils.py` HF_ENDPOINT bypass: `myTokenizer.__init__` ve `create_model_and_diffusion`'da BERT yüklemesi sırasında `HF_ENDPOINT` geçici kaldırılıyor (hf-mirror BERT servis etmiyor, `OSError` veriyordu)
-- [x] `train.py` + `sample_vqa_GPU.py` başındaki `HF_ENDPOINT=hf-mirror` set'i kaldırıldı — kök neden bu satırdı, BERT from_pretrained tüm process boyunca hf-mirror'a gidiyordu
-- [x] `vqa_model.py` `get_extended_attention_mask` `device=` kwarg kaldırıldı (transformers>=4.36 imza değişikliği, `TypeError` veriyordu)
-- [x] `train_util.py` `_SingleGPUDDP` wrapper eklendi: tek GPU'da `model.model.module.*` erişimi (`gaussian_diffusion.py`) `AttributeError` veriyordu, `.module` attribute'unu expose eden minimal wrapper ile düzeltildi
-- [x] `vqa_datasets.py` `load_image_path` çift `imgs/` prefix hatası düzeltildi: `f'{image_root}/{image_name}'` → `os.path.normpath(os.path.join(...))` (JSONL'deki `imgs/` prefix ile `image_root` çakışıyordu → `FileNotFoundError`)
-- [x] `gaussian_diffusion.py` `p_sample_loop` + `ddim_sample_loop` içindeki `print(i)` kaldırıldı (her timestep basılıyordu, tqdm varken çıktıyı dolduruyordu)
-- [x] `sample_vqa_GPU.py` çıktı yolu sadeleştirildi: `out_dir/lr1e-05/ema_0.9999_200000.jsonl` (eski: `*.pt.samples/seed105_step0.jsonl`)
-- [x] `sample_vqa_GPU.py` her JSONL satırına `confidence` ve `avg_nn_l2` eklendi
-- [x] `logger.py` `CSVOutputFormat` + `configure()`: sıfırdan eğitimde `progress.csv` temizlenir, resume'da append edilir (`append_csv` parametresi)
-- [x] Notebook `evaluate_and_export_csv` dataset yolu düzeltildi: `"datasets/test.jsonl"` hardcoded → `DRIVE_PROJECT_PATH/datasets/DATASET/test.jsonl`
-- [x] Notebook `BATCH_SIZE` → `TRAIN_BATCH_SIZE=4` + `SAMPLE_BATCH_SIZE=64` olarak ayrıldı (batch_size=64 eğitimi ~7x yavaşlatıyordu)
+## SETUP_COMMON.md — Ortak Fix'ler
 
-## Open (nice-to-have, not blocking)
+- [x] **1. requirements_colab.txt** — `pillow`, `pandas`, `scikit-learn` eklendi
+- [x] **2. train.py** — `wandb` kaldırıldı, `HF_ENDPOINT` satırı kaldırıldı, `parse_known_args` yapıldı, `logger.configure` + `append_csv` eklendi
+- [x] **3. logger.py** — `wandb` import silindi, `CSVOutputFormat` `append` parametresi eklendi, `make_output_format` ve `configure` fonksiyonlarına `append_csv` iletildi
+- [x] **4a. train_util.py** — `dist.is_initialized()` guard eklendi
+- [x] **4b. train_util.py** — `_SingleGPUDDP` wrapper eklendi
+- [x] **4c. train_util.py** — `_load_and_sync_parameters` düzeltildi (orijinal `pass` ile boştu)
+- [x] **4d. train_util.py** — `_load_ema_parameters` dist guard eklendi
+- [x] **4e. train_util.py** — tqdm progress bar eklendi
+- [x] **5. gaussian_diffusion.py** — `print(i)` satırları silindi
+- [x] **6. vqa_model.py** — `get_extended_attention_mask` `device=` kwarg kaldırıldı
+- [x] **7. bert_model.py** — transformers>=4.36 import try/except blokları eklendi
+- [x] **8. diffuvqa/utils/answer_pre.py** — oluşturuldu (`find_most_similar_answers`)
+- [x] **9. basic_utils.py** — `HF_ENDPOINT` bypass eklendi (`os.environ.pop`)
+- [x] **10. vqa_datasets.py** — `load_image_path` normpath fix uygulandı
+- [x] **11. sample_vqa_GPU.py** — `HF_ENDPOINT` satırı kaldırıldı, `use_noising_f` getattr fix, CLI arg koruma `_keep`, çıktı yolu sadeleştirildi, `confidence` + `avg_nn_l2` eklendi, tqdm eklendi
+- [x] **12. Notebook** — `TRAIN_BATCH_SIZE=4`, `SAMPLE_BATCH_SIZE=64`, `RESUME_CHECKPOINT` desteği, `evaluate_and_export_csv` dataset_file fix
 
-- [ ] Eğitimi A100 Colab'da uçtan uca test et, `progress.csv` yazıldığını doğrula
-- [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
-- [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
-- [ ] SLAKE dataset için de indirme hücresi ekle
+---
+
+## SETUP_BIOBERT.md — BioBERT Encoder Fix'leri
+
+- [x] **1. diffuvqa/config.json** — `config_name`, `language_encoder_name` → `dmis-lab/biobert-base-cased-v1.2`, `vocab_size` → 28996
+- [x] **2. diffuvqa/config/training_args.json** — aynı değişiklikler
+- [x] **3. basic_utils.py** — `myTokenizer` → `AutoTokenizer.from_pretrained("dmis-lab/biobert-base-cased-v1.2")`, `create_model_and_diffusion` default `config_name` + `vocab_size`
+- [x] **4. diffuvqa/vqa_model.py** — `TransformerNetModel` default `config_name` → BioBERT
+- [x] **5. diffuvqa/vqa_datasets.py** — `--config_name` default arg → BioBERT
+- [x] **6. Notebook config** — `MODEL_NAME="biobert"`, `MODEL_LABEL="DiffuVQA-BioBERT"`, `BRANCH="biobert"`, `DRIVE_PROJECT_PATH=".../DiffuVQA-BioBERT"`
+- [x] **6. Notebook BERT cache hücresi** — `AutoTokenizer` + `AutoModel` ile `dmis-lab/biobert-base-cased-v1.2` yükleniyor
+- [x] **8. requirements_colab.txt** — ek bağımlılık gerekmedi (`transformers>=4.36.0` BioBERT destekliyor)
+
+---
+
+## Akademik Kontrol Listesi (Kontrollü Deney)
+
+- [ ] BioBERT eğitimi aynı `LEARNING_STEPS=500000` ile başlatıldı
+- [ ] Aynı `LR=1e-5`, `BATCH_SIZE=4`, `DIFFUSION_STEPS=2500`, `SEQ_LEN=32` kullanıldı
+- [ ] Aynı dataset split (`random.seed(42)`) ile train/valid/test ayrıldı
+- [ ] Aynı `SAMPLE_STEP=200`, `SAMPLE_SEED2=105` ile sampling yapıldı
+- [ ] BLEU/ROUGE/METEOR/CIDEr/BERTScore/F1 metrikleri main branch sonuçlarıyla karşılaştırıldı
+
+---
+
+## Açık Görevler
+
+- [ ] BioBERT checkpoint 25k adımda ilk kontrol
+- [ ] 200k adım sonunda eval ve main branch ile karşılaştırma
+- [ ] SLAKE ve Med-VQA-2019 dataset'lerinde de BioBERT deneyi
