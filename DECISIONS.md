@@ -4,6 +4,22 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-29 — `train.py` progress.csv corruption on resume düzeltildi
+
+**What:** `logger.configure()` çağrısı CSV trim bloğundan **önce** yapılıyordu. `CSVOutputFormat` dosyayı `a+t` modunda açıp eski header'ı `self.keys`'e yüklüyordu. Trim sonra dosyayı `w` modunda yeniden yazıyordu ama logger'ın bellekteki state stale kalıyordu. İlk `dumpkvs()`'da `writekvs` `extra_keys` görüp header'ı tekrar yazıyor, eski satırları bozuyordu. Düzeltme: trim → sonra `logger.configure()` sırasına alındı.
+**Why:** Resume'da progress.csv sıfırdan bozuk yazılıyordu — eski adımların üzerine yanlış veriler geliyordu.
+
+---
+
+## 2026-05-29 — `eval_DiffuVQA.py` iki bug düzeltildi
+
+**What:**
+1. `with open(path)` bloğu `for path in files:` döngüsünün dışına kaçmıştı (indentation hatası) — birden fazla `.jsonl` varsa sadece son dosya değerlendiriliyordu, ama DeBERTa inference her dosya için çağrılıyordu.
+2. `create_argparser().parse_args()` → `parse_known_args()[0]` — `--folder` argümanı `create_argparser`'a bilinmeyen arg olarak geldiğinde `unrecognized arguments` hatası veriyordu.
+**Why:** Evaluation hücresi `--folder` argümanıyla çağrılınca crash, birden fazla dosya varsa yanlış sonuç.
+
+---
+
 ## 2026-05-28 — Optimizer state checkpoint kaydetme/yükleme
 
 **What:** `train_util.py`'de her `save()` çağrısında artık `opt_{step:06d}.pt` dosyası da yazılıyor. Resume'da `_load_optimizer_state()` bu dosyayı `checkpoint_path`'ten arayıp yüklüyor; dosya yoksa (eski checkpoint) "starting fresh" log'u yazılıyor ve devam ediyor. `__init__`'teki `# self._load_optimizer_state()` satırı aktif hale getirildi.

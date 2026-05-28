@@ -50,6 +50,11 @@
 - [x] Notebook `BATCH_SIZE` → `TRAIN_BATCH_SIZE=4` + `SAMPLE_BATCH_SIZE=64` olarak ayrıldı (batch_size=64 eğitimi ~7x yavaşlatıyordu)
 - [x] `logger.py` `dumpkvs()` writekvs döngüsü uncomment edildi — wandb kaldırılırken yanlışlıkla comment'e alınmıştı, progress.csv hiç yazılmıyordu
 - [x] `train_util.py` optimizer state kaydetme/yükleme eklendi — `opt_{step:06d}.pt` her checkpoint'te yazılıyor; resume'da yükleniyor (yoksa fresh start)
+- [x] `eval_DiffuVQA.py` indentation düzeltildi — `with open(path)` bloğu `for path in files:` döngüsünün dışına kaçmıştı, tüm dosyalar yerine sadece son dosya değerlendiriliyordu
+- [x] `eval_DiffuVQA.py` `create_argparser().parse_args()` → `parse_known_args()[0]` — `--folder` argümanı bilinmeyen arg hatası veriyordu
+- [x] `train.py` progress.csv corruption düzeltildi — `logger.configure()` trim'den önce çağrılıyordu; CSVOutputFormat eski header'ı cache'liyordu, trim sonrası state uyumsuzluğu satırları bozuyordu. Düzeltme: trim → sonra `logger.configure()`
+- [x] Notebook `RESUME_CHECKPOINT = ""` yapıldı — eski değer `ema_0.9999_375000.pt` hardcoded kalmıştı
+- [x] Notebook train hücresine `--microbatch {MICROBATCH}` eklendi
 
 ## Open (nice-to-have, not blocking)
 
