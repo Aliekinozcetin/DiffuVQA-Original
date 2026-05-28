@@ -4,11 +4,10 @@ Decisions are listed newest-first.
 
 ---
 
-## 2026-05-27 — pubmedbert branch: dil encoder PubMedBERT'e geçirildi
+## 2026-05-28 — `logger.py` `dumpkvs()` writekvs döngüsü uncomment edildi
 
-**What:** `config_name` ve `language_encoder_name` tüm config/kaynak dosyalarında `bert-base-uncased` → `microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext` olarak güncellendi. Etkilenen dosyalar: `diffuvqa/config.json`, `diffuvqa/config/training_args.json`, `basic_utils.py` (`myTokenizer.__init__` + `create_model_and_diffusion`), `diffuvqa/vqa_model.py` (`TransformerNetModel` default), `diffuvqa/vqa_datasets.py` (argparse default). Notebook: `BRANCH=pubmedbert`, `MODEL_NAME=pubmedbert`, `MODEL_LABEL=DiffuVQA-PubMedBERT`, `DRIVE_PROJECT_PATH=DiffuVQA-PubMedBERT`, BERT cache hücresi `AutoTokenizer`/`AutoModel` + PubMedBERT adıyla güncellendi.
-**Why:** PubMedBERT (Microsoft) sıfırdan yalnızca PubMed full-text üzerinde pre-train edilmiş; genel corpus'tan fine-tune edilen modellere (BioBERT dahil) göre biyomedikal NLP benchmark'larında daha yüksek performans gösteriyor. Uncased tokenizer → `vocab_size=30522`, mimari değişmiyor, yalnızca encoder ağırlıkları farklı.
-**Akademik not:** Kontrollü karşılaştırma için `LEARNING_STEPS`, `LR`, `BATCH_SIZE`, `DIFFUSION_STEPS`, `SEQ_LEN` ve dataset split (`random.seed(42)`) diğer branch'lerle aynı tutulmalı.
+**What:** `Logger.dumpkvs()` içindeki `for fmt in self.output_formats: fmt.writekvs(d)` döngüsü yanlışlıkla comment'e alınmıştı. Uncomment edildi.
+**Why:** wandb entegrasyonu kaldırılırken wandb.log çağrısıyla birlikte writekvs döngüsü de comment'e alınmış. Sonuç: `logkv()` ile kaydedilen tüm metrikler (step, loss, grad_norm vb.) hiçbir output format'a yazılmıyordu. `progress.csv` açılıp oluşturuluyordu ama içi daima boştu. Görselleştirme hücresindeki loss curve ve tüm eğitim grafikleri bu dosyaya bağımlı olduğundan çalışmıyordu.
 
 ---
 
