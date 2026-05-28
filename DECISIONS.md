@@ -12,6 +12,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — Resume'da progress.csv resume_step üstündeki satırları temizle
+
+**What:** `train.py`'de resume başlarken `progress.csv`'deki `step > resume_step` satırları siliniyor. Checkpoint dosya adından step numarası parse ediliyor (örn. `ema_0.9999_378000.pt` → 378000), o adımın üstündeki satırlar kırpılıyor.
+**Why:** 378k'da durdurup tekrar 375k'dan resume edilirse 375k-378k arası loglar CSV'de kalır. Yeni eğitim aynı step numaralarını tekrar yazınca duplicate satırlar oluşur. Kırpma ile resume_step'in üstündeki stale loglar temizlenir, grafik temiz devam eder.
+**How to apply:** Sadece `is_resume=True` ve `resume_step > 0` durumunda çalışır. Fresh start'ta dokunmaz.
+
+---
+
 ## 2026-05-28 — `is_resume` "none" string bug düzeltildi; `log_interval` 1000'e alındı
 
 **What:** `train.py`'deki `is_resume` kontrolü `"none"` string'ini `True` sayıyordu → her fresh start'ta `append_csv=True` oluyordu. Düzeltildi: `"none"` / `"false"` / boş string → `is_resume=False`. Aynı zamanda `log_interval` config.json'da 200→1000, notebook'ta 100→1000 yapıldı.

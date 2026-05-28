@@ -2,6 +2,7 @@
 
 ## Completed
 
+- [x] Resume'da progress.csv kırpma eklendi — resume_step üstündeki stale log satırları silinerek duplicate önlendi
 - [x] `decode_token` [SEP]'de truncate eklendi — model artık 32 token yerine [SEP]'e kadar olan kısımı döndürüyor; `skip_special_tokens=True` ile [CLS]/[PAD] temizlendi
 - [x] `is_resume` "none" string bug düzeltildi — `"none"` string'i artık resume sayılmıyor, fresh start'ta progress.csv doğru şekilde `w+t` modunda açılıyor
 - [x] `log_interval` 1000 adıma çıkarıldı (config.json: 200→1000, notebook: 100→1000)
