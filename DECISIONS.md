@@ -4,6 +4,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — `is_resume` "none" string bug düzeltildi; `log_interval` 1000'e alındı
+
+**What:** `train.py`'deki `is_resume` kontrolü `"none"` string'ini `True` sayıyordu → her fresh start'ta `append_csv=True` oluyordu. Düzeltildi: `"none"` / `"false"` / boş string → `is_resume=False`. Aynı zamanda `log_interval` config.json'da 200→1000, notebook'ta 100→1000 yapıldı.
+**Why:** `args.resume_checkpoint` default değeri config.json'da `"none"` string'i. `bool("none")=True` olduğundan fresh start'ta bile CSV append modunda açılıyordu. Eğer Drive'da eski bir `progress.csv` varsa, append+header restore mantığı çakışarak CSV'nin bozulmasına yol açabiliyordu. Log interval ise gereksiz yere çok sık yazıyordu (100 adımda bir).
+**How to apply:** `is_resume = bool(_rc) and _rc.lower() not in ('', 'none', 'false')` — sadece gerçek dosya yolu geldiğinde append modu açılır.
+
+---
+
 ## 2026-05-28 — `logger.py` `dumpkvs()` writekvs döngüsü uncomment edildi
 
 **What:** `Logger.dumpkvs()` içindeki `for fmt in self.output_formats: fmt.writekvs(d)` döngüsü yanlışlıkla comment'e alınmıştı. Uncomment edildi.
