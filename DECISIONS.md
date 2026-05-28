@@ -4,6 +4,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — `decode_token` [SEP]'de truncate + skip_special_tokens
+
+**What:** `basic_utils.py`'deki `decode_token` her zaman 32 token'lık tam diziyi decode ediyordu. Artık ilk `[SEP]` token id'sinde keserek durduruyor; HuggingFace decode'a `skip_special_tokens=True` eklendi.
+**Why:** Model her zaman tam `seq_len=32` token üretmek zorundaydı. Kvasir-VQA referans cevapları 1-3 kelime iken model 18 kelimelik output yazıyordu. Bu BLEU/METEOR/ROUGE skorlarını doğrudan bastırıyordu.
+**How to apply:** Hem `generate_answer` hem `reference_answer` aynı `decode_token`'ı kullandığından ikisi de tutarlı şekilde kesilecek. Eğitim kodu bu fonksiyonu çağırmıyor — sadece sampling etkilendi.
+
+---
+
 ## 2026-05-28 — `is_resume` "none" string bug düzeltildi; `log_interval` 1000'e alındı
 
 **What:** `train.py`'deki `is_resume` kontrolü `"none"` string'ini `True` sayıyordu → her fresh start'ta `append_csv=True` oluyordu. Düzeltildi: `"none"` / `"false"` / boş string → `is_resume=False`. Aynı zamanda `log_interval` config.json'da 200→1000, notebook'ta 100→1000 yapıldı.
