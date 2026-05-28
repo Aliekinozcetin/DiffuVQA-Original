@@ -4,7 +4,7 @@ numpy array. This can be used to produce samples for FID evaluation.
 """
 import os
 
-# HF_ENDPOINT not set: hf-mirror doesn't serve bert-base-uncased weights.
+# HF_ENDPOINT not set: hf-mirror doesn't serve PubMedBERT weights.
 import torch
 import argparse
 import os, json

@@ -118,7 +118,7 @@ Set via `args.vocab` (in config.json or CLI):
 
 | Value | Tokenizer |
 |-------|-----------|
-| `bert` | `bert-base-uncased` (HuggingFace, 30522 tokens) |
+| `bert` | `microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext` (PubMedBERT, 30522 tokens) |
 | custom path | Load vocab from file (`diffuvqa/config/vocab.txt`) |
 
 `args.vocab_size` is derived automatically from the loaded tokenizer.
