@@ -2,6 +2,7 @@
 
 ## Completed
 
+- [x] Training loop learning_steps'te durmuyor bugı düzeltildi — `for epoch in range(learning_steps)` → `while global_step < learning_steps`; log/eval global_step bazlı yapıldı
 - [x] Resume'da progress.csv kırpma eklendi — resume_step üstündeki stale log satırları silinerek duplicate önlendi
 - [x] `decode_token` [SEP]'de truncate eklendi — model artık 32 token yerine [SEP]'e kadar olan kısımı döndürüyor; `skip_special_tokens=True` ile [CLS]/[PAD] temizlendi
 - [x] `is_resume` "none" string bug düzeltildi — `"none"` string'i artık resume sayılmıyor, fresh start'ta progress.csv doğru şekilde `w+t` modunda açılıyor
