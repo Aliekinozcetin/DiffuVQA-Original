@@ -2,6 +2,9 @@
 
 ## Completed
 
+- [x] `is_resume` "none" string bug düzeltildi — `"none"` string'i artık resume sayılmıyor, fresh start'ta progress.csv doğru şekilde `w+t` modunda açılıyor
+- [x] `log_interval` 1000 adıma çıkarıldı (config.json: 200→1000, notebook: 100→1000)
+
 - [x] Create `requirements_colab.txt` (torch/torchvision excluded, wandb excluded, timm/open_clip/openpyxl/pycocoevalcap added)
 - [x] Remove `import wandb`, `wandb.init()`, `wandb.config.update()`, `WANDB_MODE` from `train.py`
 - [x] Remove `import wandb` from `diffuvqa/utils/logger.py`

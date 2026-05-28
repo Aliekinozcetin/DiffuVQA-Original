@@ -47,7 +47,8 @@ def main():
         logger.log(f"### Warning: ignoring unknown args: {unknown}")
     set_seed(args.seed)
     # dist_util.setup_dist()
-    is_resume = bool(getattr(args, 'resume_checkpoint', ''))
+    _rc = getattr(args, 'resume_checkpoint', '') or ''
+    is_resume = bool(_rc) and _rc.lower() not in ('', 'none', 'false')
     logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"], append_csv=is_resume)
     logger.log("### Creating data loader...")
 
