@@ -49,8 +49,8 @@ def main():
     # dist_util.setup_dist()
     _rc = getattr(args, 'resume_checkpoint', '') or ''
     is_resume = bool(_rc) and _rc.lower() not in ('', 'none', 'false')
-    logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"], append_csv=is_resume)
 
+    _trim_msg = None
     if is_resume:
         import re, csv
         resume_step = 0
@@ -74,7 +74,11 @@ def main():
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()
                     writer.writerows(cleaned)
-                logger.log(f"### Trimmed progress.csv to step {resume_step} ({len(rows) - len(kept)} rows removed)")
+                _trim_msg = f"### Trimmed progress.csv to step {resume_step} ({len(rows) - len(kept)} rows removed)"
+
+    logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"], append_csv=is_resume)
+    if _trim_msg:
+        logger.log(_trim_msg)
 
     logger.log("### Creating data loader...")
 
