@@ -188,7 +188,7 @@ if __name__ == '__main__':
        
 
 
-    with open(path, 'r') as f:
+        with open(path, 'r') as f:
             acc = 0.
             acc_oe = 0.
             acc_yn = 0.
@@ -209,7 +209,6 @@ if __name__ == '__main__':
                     acc += 1
                 if reference == 'yes' or reference == 'no':
                     if recover == reference:
-                        
                         acc_yn += 1
                     c_yn += 1
                 elif reference != 'yes' and reference != 'no':
@@ -232,38 +231,38 @@ if __name__ == '__main__':
                 sourceDict[cnt].append(source)
                 cnt += 1
 
-            accuracy = acc / cnt
+        accuracy = acc / cnt
 
-            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
-            precision, recall, f1_score = calculate_f1(references, recovers)
-            CIDer =  cider_score(references, recovers)
+        P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        precision, recall, f1_score = calculate_f1(references, recovers)
+        CIDer =  cider_score(references, recovers)
 
-            import json
+        import json
 
-            print('*' * 30)
-            print('avg BLEU1 score', np.mean(bleu))
-            print('avg ROUGE-L score', np.mean(rougel))
-            print('avg meteor score', np.mean(meteor))
-            print('avg cider score', CIDer)
-            print('avg bert_score', torch.mean(F1))
-            print('avg f1_score', f1_score)
-            print('acc', accuracy)
-            print('acc_YN',acc_yn/c_yn)
-            print('acc_OE', acc_oe/c_oe)
+        print('*' * 30)
+        print('avg BLEU1 score', np.mean(bleu))
+        print('avg ROUGE-L score', np.mean(rougel))
+        print('avg meteor score', np.mean(meteor))
+        print('avg cider score', CIDer)
+        print('avg bert_score', torch.mean(F1))
+        print('avg f1_score', f1_score)
+        print('acc', accuracy)
+        print('acc_YN',acc_yn/c_yn)
+        print('acc_OE', acc_oe/c_oe)
 
-            results = {
-                'avg_BLEU1_score': np.mean(bleu),
-                'avg_ROUGE_L_score': np.mean(rougel),
-                'avg_meteor_score': np.mean(meteor),
-                'avg_CIDer': CIDer,
-                'avg_bert_score': torch.mean(F1).item(),
-                'avg_f1_score': f1_score,
-                'acc': accuracy,
-                'acc_YN':acc_yn/c_yn,
-                'acc_OE': acc_oe/c_oe,
-            }
-            with open('ema_0.9999_300000.pt.samples.jsonl', 'w') as f:
-                json.dump(results, f, indent=4)
+        results = {
+            'avg_BLEU1_score': np.mean(bleu),
+            'avg_ROUGE_L_score': np.mean(rougel),
+            'avg_meteor_score': np.mean(meteor),
+            'avg_CIDer': CIDer,
+            'avg_bert_score': torch.mean(F1).item(),
+            'avg_f1_score': f1_score,
+            'acc': accuracy,
+            'acc_YN':acc_yn/c_yn,
+            'acc_OE': acc_oe/c_oe,
+        }
+        with open('ema_0.9999_300000.pt.samples.jsonl', 'w') as f:
+            json.dump(results, f, indent=4)
 
     if len(files) > 1:
         if not args.mbr:
