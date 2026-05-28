@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    arg = create_argparser().parse_args()
+    arg = create_argparser().parse_known_args()[0]
     tokenizer = load_tokenizer(arg)
 
     files = sorted(glob.glob(f"{args.folder}/*jsonl"))
