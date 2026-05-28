@@ -61,7 +61,12 @@ def main():
         if os.path.exists(csv_path) and resume_step > 0:
             with open(csv_path, 'r') as f:
                 rows = list(csv.DictReader(f))
-            kept = [r for r in rows if int(r.get('step', 0)) <= resume_step]
+            def _step_val(r):
+                try:
+                    return int(r.get('step', 0))
+                except (ValueError, TypeError):
+                    return 0
+            kept = [r for r in rows if _step_val(r) <= resume_step]
             if len(kept) < len(rows):
                 fieldnames = list(rows[0].keys()) if rows else []
                 with open(csv_path, 'w', newline='') as f:
