@@ -225,17 +225,6 @@ class TransformerNetModel(nn.Module):
             print('initializing from pretrained bert...')
             print(config)
 
-            bert_config = BertConfig(
-                vocab_size=args.vocab_size,
-                hidden_size=args.hidden_size,
-                num_hidden_layers=args.num_layers,
-                num_attention_heads=args.num_heads,
-                intermediate_size=args.hidden_size * args.mlp_ratio,
-                max_position_embeddings=args.seq_len,
-                hidden_dropout_prob=args.dropout,
-                attention_probs_dropout_prob=args.dropout,
-            )
-
             temp_bert = BertModel.from_pretrained(config_name, config=config)
 
             self.word_embedding = temp_bert.embeddings.word_embeddings

@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — Kod denetimi: 3 bug düzeltildi
+
+**What:**
+1. `sample_vqa_GPU.py`: `sample_shape` artık `(B, args.seq_len, D)` değil `(B, x_start.shape[1], D)` — x_start (B,64,768) olduğundan sample_shape da 64 olmalıydı. Önceki haliyle p_sample_loop içinde noise verilince sample_shape yok sayılıyordu, ama misleading kod kaldı.
+2. `vqa_model.py`: `bert_config` dead code silindi — `BertConfig(max_position_embeddings=seq_len=32)` oluşturulup `from_pretrained`'e geçilmiyordu; `config=AutoConfig` (512 position) kullanılıyordu.
+3. `gaussian_diffusion.py`: NLL loss artık padding token'ları hariç tutuyor — `answer_mask = (input_ids_a != 0).float()` ile `_token_discrete_loss`'a mask geçiliyor.
+**Why:** sample_shape tutarsızlığı sampling güvenilirliğini etkiliyor; dead code kafa karıştırıcı; padding token'larının loss'a dahil edilmesi answer token sinyalini zayıflatıyor.
+
+---
+
 ## 2026-05-28 — `decode_token` [SEP]'de truncate + skip_special_tokens
 
 **What:** `basic_utils.py`'deki `decode_token` her zaman 32 token'lık tam diziyi decode ediyordu. Artık ilk `[SEP]` token id'sinde keserek durduruyor; HuggingFace decode'a `skip_special_tokens=True` eklendi.
