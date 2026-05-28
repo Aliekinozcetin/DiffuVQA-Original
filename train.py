@@ -50,6 +50,26 @@ def main():
     _rc = getattr(args, 'resume_checkpoint', '') or ''
     is_resume = bool(_rc) and _rc.lower() not in ('', 'none', 'false')
     logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"], append_csv=is_resume)
+
+    if is_resume:
+        import re, csv
+        resume_step = 0
+        m = re.search(r'(\d{6})', os.path.basename(_rc))
+        if m:
+            resume_step = int(m.group(1))
+        csv_path = os.path.join(args.checkpoint_path, "progress.csv")
+        if os.path.exists(csv_path) and resume_step > 0:
+            with open(csv_path, 'r') as f:
+                rows = list(csv.DictReader(f))
+            kept = [r for r in rows if int(r.get('step', 0)) <= resume_step]
+            if len(kept) < len(rows):
+                fieldnames = list(rows[0].keys()) if rows else []
+                with open(csv_path, 'w', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(kept)
+                logger.log(f"### Trimmed progress.csv to step {resume_step} ({len(rows) - len(kept)} rows removed)")
+
     logger.log("### Creating data loader...")
 
     tokenizer = load_tokenizer(args)
