@@ -274,7 +274,7 @@ if __name__ == "__main__":
     import sys
     import os
     from torchvision import transforms
-    from transformers import BertTokenizer, BertModel
+    from transformers import AutoTokenizer, AutoModel
     import argparse
     import argparse
     import json, torch, os
