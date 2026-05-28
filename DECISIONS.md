@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — Optimizer state checkpoint kaydetme/yükleme
+
+**What:** `train_util.py`'de her `save()` çağrısında artık `opt_{step:06d}.pt` dosyası da yazılıyor. Resume'da `_load_optimizer_state()` bu dosyayı `checkpoint_path`'ten arayıp yüklüyor; dosya yoksa (eski checkpoint) "starting fresh" log'u yazılıyor ve devam ediyor. `__init__`'teki `# self._load_optimizer_state()` satırı aktif hale getirildi.
+**Why:** Her resume'da Adam'ın momentum ve variance state'i sıfırlanıyordu. Bu, özellikle learning rate annealing aktifken yakınsama kalitesini bozuyor; model yavaş bir LR'den başlıyor ama optimizer "unutmuş" gibi davranıyor. Düzeltme: ~150MB ekstra checkpoint dosyası, sıfırdan optimizer yerine iyi momentum state'iyle devam.
+
+---
+
 ## 2026-05-28 — Kod denetimi: 3 bug düzeltildi
 
 **What:**
