@@ -103,10 +103,10 @@ class TrainLoop:
 
         self.opt = AdamW(self.master_params, lr=self.lr, weight_decay=self.weight_decay)
         if self.resume_step:
-            # self._load_optimizer_state()
             frac_done = (self.step + self.resume_step) / self.learning_steps
             lr = self.lr * (1 - frac_done)
             self.opt = AdamW(self.master_params, lr=lr, weight_decay=self.weight_decay)
+            self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
             # being specified at the command line.
             self.ema_params = [
@@ -166,13 +166,14 @@ class TrainLoop:
         return ema_params
 
     def _load_optimizer_state(self):
-        main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
-        if bf.exists(main_checkpoint):
-            logger.log(f"loading optimizer state from checkpoint: {main_checkpoint}")
-            state_dict = dist_util.load_state_dict(
-                actual_model_path(main_checkpoint), map_location=dist_util.dev()
-            )
+        opt_filename = f"opt_{self.resume_step:06d}.pt"
+        opt_path = bf.join(self.checkpoint_path, opt_filename)
+        if bf.exists(opt_path):
+            logger.log(f"loading optimizer state from: {opt_path}")
+            state_dict = dist_util.load_state_dict(opt_path, map_location=dist_util.dev())
             self.opt.load_state_dict(state_dict)
+        else:
+            logger.log(f"no optimizer state found at {opt_path}, starting fresh")
 
     def _setup_fp16(self):
         self.master_params = make_master_params(self.model_params)
@@ -405,6 +406,12 @@ class TrainLoop:
         # save_checkpoint(0, self.master_params)
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint(rate, params)
+
+        opt_filename = f"opt_{(self.step + self.resume_step):06d}.pt"
+        opt_path = bf.join(self.checkpoint_path, opt_filename)
+        logger.log(f"saving optimizer state to {opt_path}...")
+        with bf.BlobFile(opt_path, "wb") as f:
+            th.save(self.opt.state_dict(), f)
 
     def _master_params_to_state_dict(self, master_params):
         if self.use_fp16:
