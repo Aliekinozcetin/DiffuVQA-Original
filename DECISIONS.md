@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — `logger.py` `dumpkvs()` writekvs döngüsü uncomment edildi
+
+**What:** `Logger.dumpkvs()` içindeki `for fmt in self.output_formats: fmt.writekvs(d)` döngüsü yanlışlıkla comment'e alınmıştı. Uncomment edildi.
+**Why:** wandb entegrasyonu kaldırılırken wandb.log çağrısıyla birlikte writekvs döngüsü de comment'e alınmış. Sonuç: `logkv()` ile kaydedilen tüm metrikler (step, loss, grad_norm vb.) hiçbir output format'a yazılmıyordu. `progress.csv` açılıp oluşturuluyordu ama içi daima boştu. Görselleştirme hücresindeki loss curve ve tüm eğitim grafikleri bu dosyaya bağımlı olduğundan çalışmıyordu.
+
+---
+
 ## 2026-05-27 — TRAIN_BATCH_SIZE=4, SAMPLE_BATCH_SIZE=64 olarak ayrıldı
 
 **What:** Notebook config hücresinde `BATCH_SIZE` tek değişken yerine `TRAIN_BATCH_SIZE=4` ve `SAMPLE_BATCH_SIZE=64` olarak ikiye ayrıldı. `train-cell` → `TRAIN_BATCH_SIZE`, `sample-cell` → `SAMPLE_BATCH_SIZE` kullanıyor.
