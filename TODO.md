@@ -2,6 +2,9 @@
 
 ## Completed
 
+- [x] sample_shape x_start.shape[1] kullanacak şekilde düzeltildi (seq_len yerine)
+- [x] vqa_model.py bert_config dead code silindi
+- [x] NLL loss padding token'ları hariç tutacak şekilde düzeltildi (answer_mask eklendi)
 - [x] Training loop learning_steps'te durmuyor bugı düzeltildi — `for epoch in range(learning_steps)` → `while global_step < learning_steps`; log/eval global_step bazlı yapıldı
 - [x] Resume'da progress.csv kırpma eklendi — resume_step üstündeki stale log satırları silinerek duplicate önlendi
 - [x] `decode_token` [SEP]'de truncate eklendi — model artık 32 token yerine [SEP]'e kadar olan kısımı döndürüyor; `skip_special_tokens=True` ile [CLS]/[PAD] temizlendi

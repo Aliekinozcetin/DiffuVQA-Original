@@ -706,10 +706,11 @@ class GaussianDiffusion:
         out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
         tT_loss = mean_flat(out_mean ** 2)
 
-        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a)  # embedding regularization
+        answer_mask = (input_ids_a != 0).float()  # (B, seq_len) -- ignore padding tokens
+        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a)  # x_0->model_out_x_start
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
         target_answer = x_start_mean.detach()
