@@ -12,6 +12,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-28 — Training loop `learning_steps`'te durmuyor bugı düzeltildi
+
+**What:** `train_util.py`'deki `for epoch in range(self.learning_steps)` döngüsü `learning_steps` kez epoch dönüyordu — her epoch tüm dataset'i işlediğinden çok fazla adım atılıyordu. `while global_step < learning_steps` döngüsüne çevrildi. Log/eval koşulları da `global_step` bazlı yapıldı.
+**Why:** Orijinal kod epoch sayısını step sayısı gibi kullanmış. Resume'da `step=0`'dan başlandığında da `0 % log_interval == 0` tetiklenip gereksiz log/eval yapılıyordu.
+**How to apply:** `self.step + self.resume_step >= self.learning_steps` koşulu her batch başında kontrol edilir, hedef adıma ulaşınca döngü kırılır.
+
+---
+
 ## 2026-05-28 — Resume'da progress.csv resume_step üstündeki satırları temizle
 
 **What:** `train.py`'de resume başlarken `progress.csv`'deki `step > resume_step` satırları siliniyor. Checkpoint dosya adından step numarası parse ediliyor (örn. `ema_0.9999_378000.pt` → 378000), o adımın üstündeki satırlar kırpılıyor.

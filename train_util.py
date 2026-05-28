@@ -202,16 +202,19 @@ class TrainLoop:
         from tqdm import tqdm
         pbar = tqdm(total=self.learning_steps, initial=self.step + self.resume_step,
                     desc="Training", unit="step", dynamic_ncols=True)
-        for epoch in range(self.learning_steps):
+        while self.step + self.resume_step < self.learning_steps:
             for image, cond in self.data:
+                if self.step + self.resume_step >= self.learning_steps:
+                    break
                 self.run_step(image, cond)
-                if self.step % self.log_interval == 0:
+                global_step = self.step + self.resume_step
+                if self.step > 0 and global_step % self.log_interval == 0:
                     logger.dumpkvs()
-                if self.eval_data is not None and self.step % self.eval_interval == 0:
+                if self.eval_data is not None and self.step > 0 and global_step % self.eval_interval == 0:
                     batch_eval, cond_eval = next(self.eval_data)
                     self.forward_only(batch_eval, cond_eval)
                     logger.dumpkvs()
-                if self.step > 0 and self.step % self.save_interval == 0:
+                if self.step > 0 and global_step % self.save_interval == 0:
                     self.save()
                     if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                         pbar.close()
@@ -221,7 +224,7 @@ class TrainLoop:
                 pbar.set_postfix({"loss": f"{self._last_loss:.4f}"} if hasattr(self, "_last_loss") else {})
         pbar.close()
         # Save the last checkpoint if it wasn't already saved.
-        if (self.step - 1) % self.save_interval != 0:
+        if (self.step + self.resume_step - 1) % self.save_interval != 0:
             self.save()
 
     def run_step(self, image, cond):
