@@ -68,11 +68,12 @@ def main():
                     return 0
             kept = [r for r in rows if _step_val(r) <= resume_step]
             if len(kept) < len(rows):
-                fieldnames = list(rows[0].keys()) if rows else []
+                fieldnames = [k for k in (rows[0].keys() if rows else []) if k is not None]
+                cleaned = [{k: v for k, v in r.items() if k in fieldnames} for r in kept]
                 with open(csv_path, 'w', newline='') as f:
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()
-                    writer.writerows(kept)
+                    writer.writerows(cleaned)
                 logger.log(f"### Trimmed progress.csv to step {resume_step} ({len(rows) - len(kept)} rows removed)")
 
     logger.log("### Creating data loader...")
