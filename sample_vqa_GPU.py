@@ -241,25 +241,30 @@ def main():
         probs = th.softmax(logits, dim=-1)  # bsz, seqlen, vocab
         confidence_per_seq = probs.gather(-1, cands.indices).squeeze(-1).mean(dim=-1)  # bsz
 
-        # avg_nn_l2: mean L2 distance between sample embeddings and their nearest vocab embeddings
+        # rounding_agreement: fraction of positions where logit-argmax == L2-nearest vocab token.
+        # Measures how well the diffusion embedding has converged onto the vocabulary manifold.
+        # Converged model → ~1.0; random embeddings → ~0.0.
         vocab_emb = model_emb.weight  # vocab_size, hidden_dim
-        # sample: bsz, seqlen, hidden_dim; nearest token embedding per position
-        nearest_emb = vocab_emb[cands.indices.squeeze(-1)]  # bsz, seqlen, hidden_dim
-        l2_per_seq = (sample - nearest_emb).norm(dim=-1).mean(dim=-1)  # bsz
+        # L2 nearest: argmin over vocab of ||sample_pos - vocab_emb||
+        # sample: bsz, seqlen, hidden_dim → expand for pairwise distance
+        dists = th.cdist(sample.float(), vocab_emb.float())  # bsz, seqlen, vocab_size
+        l2_argmin = dists.argmin(dim=-1)  # bsz, seqlen
+        logit_argmax = cands.indices.squeeze(-1)  # bsz, seqlen
+        agreement_per_seq = (l2_argmin == logit_argmax).float().mean(dim=-1)  # bsz
 
         word_lst_recover = []
         word_lst_ref = []
         word_lst_source = []
         confidence_lst = []
-        avg_nn_l2_lst = []
+        rounding_agreement_lst = []
 
-        for seq, input_mask, conf, l2 in zip(cands.indices, input_ids_mask_ori,
-                                              confidence_per_seq, l2_per_seq):
+        for seq, input_mask, conf, agr in zip(cands.indices, input_ids_mask_ori,
+                                               confidence_per_seq, agreement_per_seq):
             seq = seq.to(th.device("cpu"))
             tokens = tokenizer.decode_token(seq)
             word_lst_recover.append(tokens)
             confidence_lst.append(round(conf.item(), 6))
-            avg_nn_l2_lst.append(round(l2.item(), 6))
+            rounding_agreement_lst.append(round(agr.item(), 6))
 
         for seq, input_mask in zip(input_ids_x, input_ids_mask_ori):
             seq = seq.to(th.device("cpu"))
@@ -268,16 +273,16 @@ def main():
             word_lst_ref.append(tokenizer.decode_token(seq[len_x:]))
 
         fout = open(out_path, 'a')
-        for (recov, ref, src, img_name, conf, l2) in zip(
+        for (recov, ref, src, img_name, conf, agr) in zip(
                 word_lst_recover, word_lst_ref, word_lst_source, image_name,
-                confidence_lst, avg_nn_l2_lst):
+                confidence_lst, rounding_agreement_lst):
             print(json.dumps({
                 "image_name": img_name,
                 "question": src,
                 "reference_answer": ref,
                 "generate_answer": recov,
                 "confidence": conf,
-                "avg_nn_l2": l2,
+                "rounding_agreement": agr,
             }), file=fout)
         fout.close()
         # break
