@@ -60,14 +60,18 @@ class myTokenizer():
     def decode_token(self, seq):
         if isinstance(self.tokenizer, dict):
             seq = seq.squeeze(-1).tolist()
-            while len(seq)>0 and seq[-1] == self.pad_token_id:
+            # truncate at first [SEP] token
+            if self.sep_token_id in seq:
+                seq = seq[:seq.index(self.sep_token_id)]
+            while len(seq) > 0 and seq[-1] == self.pad_token_id:
                 seq.pop()
             tokens = " ".join([self.rev_tokenizer[x] for x in seq]).replace('__ ', '').replace('@@ ', '')
         elif isinstance(self.tokenizer, PreTrainedTokenizerFast):
             seq = seq.squeeze(-1).tolist()
-            while len(seq)>0 and seq[-1] == self.pad_token_id:
-                seq.pop()
-            tokens = self.tokenizer.decode(seq)
+            # truncate at first [SEP] token
+            if self.sep_token_id in seq:
+                seq = seq[:seq.index(self.sep_token_id)]
+            tokens = self.tokenizer.decode(seq, skip_special_tokens=True)
         else:
             assert False, "invalid type of vocab_dict"
         return tokens
