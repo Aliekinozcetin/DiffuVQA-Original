@@ -2,13 +2,11 @@
 Generate a large batch of image samples from a model and save them as a large
 numpy array. This can be used to produce samples for FID evaluation.
 """
-import os
-
 # HF_ENDPOINT not set: hf-mirror doesn't serve PubMedBERT weights.
+import os
+import json
 import torch
 import argparse
-import os, json
-from tracemalloc import start
 
 import numpy as np
 import torch as th

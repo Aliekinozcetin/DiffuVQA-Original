@@ -273,12 +273,11 @@ def _collate_batch_helper(examples, pad_token_id, max_length, return_mask=False)
 if __name__ == "__main__":
     import sys
     import os
-    from torchvision import transforms
-    from transformers import AutoTokenizer, AutoModel
+    import json
     import argparse
-    import argparse
-    import json, torch, os
     import numpy as np
+    import torch
+    from torchvision import transforms
     from diffuvqa.vqa_datasets import load_data_vqa
     from diffuvqa.step_sample import create_named_schedule_sampler
     from basic_utils import (
