@@ -66,6 +66,7 @@
 - [x] `sample_vqa_GPU.py` confidence L2 tabanlı hesaplamaya geçildi — lm_head softmax yerine nearest answer vocab token'a L2 mesafesi
 - [x] `rounding.py` lm_head argmax rounding — L2 KNN yerine `get_logits` argmax kullanılıyor; training NLL ile tutarlı seçim mekanizması
 - [x] CLAUDE.md "Do NOT modify" listesi kaldırıldı
+- [x] `gaussian_diffusion.py` [SEP] token 2x ağırlık — `_token_discrete_loss`'ta [SEP] (id=102) pozisyonlarına ekstra sinyal verildi; 400k adım boyunca [SEP] üretilememesinin sebebi bu sinyalin yokluğuydu
 
 ## Open (nice-to-have, not blocking)
 

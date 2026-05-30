@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-30 — [SEP] token 2x ağırlık: sequence boundary sinyali
+
+**What:** `_token_discrete_loss`'ta CrossEntropyLoss çıktısına `sep_weight = where(input_ids==102, 2.0, 1.0)` çarpılıyor. Hem `decoder_nll` hem `terms["nll"]` bu ağırlığı alıyor (her ikisi de `_token_discrete_loss` üzerinden geçiyor). Mask uygulamasından önce yapılıyor.
+**Why:** 400k adım boyunca [SEP] üretim oranı %0 kaldı. Model cevabın nerede biteceğini hiç öğrenemedi — gen_length kontrolsüz büyüdü, BLEU/ROUGE düştü. Bunun sebebi loss'ta [SEP] pozisyonuna özel sinyal olmamasıydı; diğer token'larla eşit ağırlıkla işleniyordu. 2x ağırlık ile model bu pozisyona daha fazla odaklanacak. Checkpoint'ten resume ile uygulandı — mimari değişiklik yok, sadece loss sinyali eklendi.
+
+---
+
 ## 2026-05-30 — lm_head argmax rounding (L2 KNN yerine)
 
 **What:** `denoised_fn_round` artık `get_logits` parametresi alıyor. Verildiğinde token seçimi L2 KNN yerine `lm_head(embedding).argmax()` ile yapılıyor. `answer_vocab_ids` kısıtlaması varsa argmax önce o subspace'e uygulanıyor. `get_logits=None` durumunda L2 KNN fallback çalışıyor (geriye dönük uyumlu). `sample_vqa_GPU.py`'de `model.get_logits` geçiriliyor.
