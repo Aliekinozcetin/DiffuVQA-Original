@@ -88,8 +88,16 @@ def get_weights(model, args):
     model.weight.requires_grad = False
     return model
 
-def denoised_fn_round(args, model, text_emb, t):
+def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None):
     model_emb = model.weight
+    # If answer_vocab_ids provided, restrict KNN to that token subspace.
+    # This prevents rounding to unrelated biomedical tokens outside the
+    # answer space (e.g. ##itis, ##opy) that dominate the L2 neighborhood.
+    if answer_vocab_ids is not None:
+        knn_emb = model_emb[answer_vocab_ids]
+    else:
+        knn_emb = model_emb
+
     old_shape = text_emb.shape
     old_device = text_emb.device
 
@@ -98,8 +106,12 @@ def denoised_fn_round(args, model, text_emb, t):
     else:
         text_emb = text_emb
 
-    val, indices = get_efficient_knn(model_emb, text_emb.to(model_emb.device))
-    rounded_tokens = indices[0]
+    val, indices = get_efficient_knn(knn_emb, text_emb.to(knn_emb.device))
+    # remap local subspace indices back to full vocabulary indices
+    if answer_vocab_ids is not None:
+        rounded_tokens = answer_vocab_ids[indices[0]]
+    else:
+        rounded_tokens = indices[0]
     new_embeds = model(rounded_tokens).view(old_shape).to(old_device)
 
     return new_embeds

@@ -71,7 +71,11 @@ class myTokenizer():
             # truncate at first [SEP] token
             if self.sep_token_id in seq:
                 seq = seq[:seq.index(self.sep_token_id)]
-            tokens = self.tokenizer.decode(seq, skip_special_tokens=True)
+            # convert_tokens_to_string properly merges ## wordpiece continuations
+            # (e.g. ["col", "##on", "##oscopy"] → "colonoscopy")
+            # tokenizer.decode() leaves ## prefixes intact as separate tokens
+            raw_tokens = self.tokenizer.convert_ids_to_tokens(seq, skip_special_tokens=True)
+            tokens = self.tokenizer.convert_tokens_to_string(raw_tokens)
         else:
             assert False, "invalid type of vocab_dict"
         return tokens
