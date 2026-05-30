@@ -258,23 +258,25 @@ def main():
         a_shape = sample.size(1) // 2
         sample = sample[:, a_shape:, :]
         logits = model.get_logits(sample)  # bsz, seqlen, vocab
-        cands = th.topk(logits, k=1, dim=-1)
 
-        # L2 distances to answer vocab subspace: bsz, seqlen, answer_vocab_size
-        ans_emb = model_emb.weight[answer_vocab_ids]  # answer_vocab_size, hidden_dim
-        dists = th.cdist(sample.float(), ans_emb.float())  # bsz, seqlen, answer_vocab_size
-        l2_argmin_local = dists.argmin(dim=-1)  # bsz, seqlen (indices into answer_vocab_ids)
-        l2_argmin = answer_vocab_ids[l2_argmin_local]  # remap to full vocab ids
+        # Decode: lm_head logits masked to answer vocab, then argmax.
+        # Keeps training-consistent selection (lm_head) while restricting
+        # to the answer subspace so biomedical noise tokens are excluded.
+        # -inf mask pushes non-answer tokens out of softmax competition.
+        masked_logits = logits.clone()
+        answer_mask_bool = th.zeros(logits.size(-1), dtype=th.bool, device=logits.device)
+        answer_mask_bool[answer_vocab_ids] = True
+        masked_logits[:, :, ~answer_mask_bool] = float('-inf')
+        decode_ids = masked_logits.argmax(dim=-1)  # bsz, seqlen
 
-        # confidence: negative mean L2 distance to nearest answer vocab token,
-        # normalised to [0,1] via softmin. Replaces lm_head softmax which
-        # disagreed with L2 rounding for ~53-72% of positions.
-        min_dists = dists.min(dim=-1).values  # bsz, seqlen
-        confidence_per_seq = 1.0 / (1.0 + min_dists.mean(dim=-1))  # bsz, in (0,1]
+        cands = th.topk(logits, k=1, dim=-1)  # kept for rounding_agreement metric
 
-        # rounding_agreement: fraction of positions where logit-argmax == L2-nearest vocab token.
-        logit_argmax = cands.indices.squeeze(-1)  # bsz, seqlen
-        agreement_per_seq = (l2_argmin == logit_argmax).float().mean(dim=-1)  # bsz
+        # confidence: mean top-1 softmax prob over answer vocab restricted logits
+        confidence_per_seq = th.softmax(masked_logits, dim=-1).max(dim=-1).values.mean(dim=-1)
+
+        # rounding_agreement: fraction where lm_head argmax == answer-masked argmax
+        logit_argmax = cands.indices.squeeze(-1)  # bsz, seqlen (full vocab)
+        agreement_per_seq = (decode_ids == logit_argmax).float().mean(dim=-1)  # bsz
 
         word_lst_recover = []
         word_lst_ref = []
@@ -282,7 +284,7 @@ def main():
         confidence_lst = []
         rounding_agreement_lst = []
 
-        for seq, input_mask, conf, agr in zip(l2_argmin, input_ids_mask_ori,
+        for seq, input_mask, conf, agr in zip(decode_ids, input_ids_mask_ori,
                                                confidence_per_seq, agreement_per_seq):
             seq = seq.to(th.device("cpu"))
             tokens = tokenizer.decode_token(seq)
