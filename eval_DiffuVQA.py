@@ -199,6 +199,9 @@ if __name__ == '__main__':
                 source = json.loads(row)['question'].strip()
                 reference = json.loads(row)['reference_answer'].strip()
                 recover = json.loads(row)['generate_answer'].strip()
+                # skip corrupt Kvasir-VQA entries
+                if source.lower() == 'none' or reference.lower() in ('nan', 'none', ''):
+                    continue
                 source = source.replace(args.eos, '').replace(args.sos, '').strip()
                 reference = reference.replace(args.eos, '').replace(args.sos, '').replace(args.sep, '').strip()
                 recover = recover.replace(args.eos, '').replace(args.sos, '').replace(args.sep, '').replace(args.pad, '').strip()
