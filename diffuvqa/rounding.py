@@ -88,31 +88,31 @@ def get_weights(model, args):
     model.weight.requires_grad = False
     return model
 
-def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None):
-    model_emb = model.weight
-    # If answer_vocab_ids provided, restrict KNN to that token subspace.
-    # This prevents rounding to unrelated biomedical tokens outside the
-    # answer space (e.g. ##itis, ##opy) that dominate the L2 neighborhood.
-    if answer_vocab_ids is not None:
-        knn_emb = model_emb[answer_vocab_ids]
-    else:
-        knn_emb = model_emb
-
+def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None, get_logits=None):
     old_shape = text_emb.shape
     old_device = text_emb.device
 
     if len(text_emb.shape) > 2:
         text_emb = text_emb.reshape(-1, text_emb.size(-1))
-    else:
-        text_emb = text_emb
 
-    val, indices = get_efficient_knn(knn_emb, text_emb.to(knn_emb.device))
-    # remap local subspace indices back to full vocabulary indices
-    if answer_vocab_ids is not None:
-        rounded_tokens = answer_vocab_ids[indices[0]]
+    if get_logits is not None:
+        # lm_head argmax: use the same selection mechanism as NLL training.
+        # This keeps rounding consistent with what the model optimises,
+        # unlike L2 KNN which operates in a different metric space.
+        logits = get_logits(text_emb.to(old_device))  # (bsz*seqlen, vocab)
+        if answer_vocab_ids is not None:
+            # restrict to answer subspace before argmax
+            logits = logits[:, answer_vocab_ids]
+            rounded_tokens = answer_vocab_ids[logits.argmax(dim=-1)]
+        else:
+            rounded_tokens = logits.argmax(dim=-1)
     else:
-        rounded_tokens = indices[0]
+        # fallback: L2 KNN (original behaviour)
+        model_emb = model.weight
+        knn_emb = model_emb[answer_vocab_ids] if answer_vocab_ids is not None else model_emb
+        val, indices = get_efficient_knn(knn_emb, text_emb.to(knn_emb.device))
+        rounded_tokens = answer_vocab_ids[indices[0]] if answer_vocab_ids is not None else indices[0]
+
     new_embeds = model(rounded_tokens).view(old_shape).to(old_device)
-
     return new_embeds
 

@@ -141,12 +141,6 @@ Set via `args.vocab` (in config.json or CLI):
 
 ---
 
-## Do NOT modify (architecture files)
+## Architecture files
 
-- `diffuvqa/gaussian_diffusion.py`
-- `diffuvqa/rounding.py`
-- `diffuvqa/step_sample.py`
-- `diffuvqa/vqa_model.py`
-- `diffuvqa/attention/attention_model.py`
-- `diffuvqa/language_encoders/bert_model.py`
-- `diffuvqa/vision_encoders/clip_model.py`
+Tüm dosyalar gerektiğinde değiştirilebilir. Mimari değişiklikler DECISIONS.md'ye kaydedilmeli.
