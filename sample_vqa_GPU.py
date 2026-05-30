@@ -282,7 +282,7 @@ def main():
         confidence_lst = []
         rounding_agreement_lst = []
 
-        for seq, input_mask, conf, agr in zip(cands.indices, input_ids_mask_ori,
+        for seq, input_mask, conf, agr in zip(l2_argmin, input_ids_mask_ori,
                                                confidence_per_seq, agreement_per_seq):
             seq = seq.to(th.device("cpu"))
             tokens = tokenizer.decode_token(seq)
