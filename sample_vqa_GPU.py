@@ -54,7 +54,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
 
 def create_argparser():
     defaults = dict(model_path='', step=2500, out_dir='', top_p=0)
-    decode_defaults = dict(split='test', clamp_step=0, seed2=105, clip_denoised=False)
+    decode_defaults = dict(split='test', clamp_step=200, seed2=105, clip_denoised=False)
     defaults.update(load_defaults_config())
     defaults.update(decode_defaults)
     parser = argparse.ArgumentParser()
@@ -162,6 +162,27 @@ def main():
 
     model_emb.to(th.device("cuda"))
 
+    # Build answer vocabulary: collect all unique token ids that appear in
+    # answer positions across the dataset, then restrict KNN rounding to
+    # this subspace. Prevents spurious biomedical tokens from dominating L2.
+    answer_vocab_set = set()
+    for cond in all_text_data:
+        ids = cond['input_a_id']  # (B, seq_len) or list of tensors
+        if isinstance(ids, torch.Tensor):
+            answer_vocab_set.update(ids.view(-1).tolist())
+        else:
+            for row in ids:
+                answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
+    # always keep special tokens so [CLS]/[SEP]/[PAD] boundaries work
+    special_ids = {tokenizer.tokenizer.cls_token_id,
+                   tokenizer.tokenizer.sep_token_id,
+                   tokenizer.tokenizer.pad_token_id}
+    answer_vocab_set.update(special_ids)
+    answer_vocab_set.discard(None)
+    answer_vocab_ids = torch.tensor(sorted(answer_vocab_set),
+                                    dtype=torch.long, device=th.device("cuda"))
+    print(f"### Answer vocabulary size: {len(answer_vocab_ids)} / {tokenizer.vocab_size} tokens")
+
     text_iterator = iter(all_text_data)
     image_iterator = iter(all_image_data)
 
@@ -221,7 +242,8 @@ def main():
             sample_shape,
             noise=x_noised,
             clip_denoised=args.clip_denoised,
-            denoised_fn=partial(denoised_fn_round, args, model_emb),
+            denoised_fn=partial(denoised_fn_round, args, model_emb,
+                                answer_vocab_ids=answer_vocab_ids),
             model_kwargs=model_kwargs,
             top_p=args.top_p,
             clamp_step=args.clamp_step,
@@ -237,18 +259,19 @@ def main():
         logits = model.get_logits(sample)  # bsz, seqlen, vocab
         cands = th.topk(logits, k=1, dim=-1)
 
-        # confidence: mean top-1 softmax probability per sequence
-        probs = th.softmax(logits, dim=-1)  # bsz, seqlen, vocab
-        confidence_per_seq = probs.gather(-1, cands.indices).squeeze(-1).mean(dim=-1)  # bsz
+        # L2 distances to answer vocab subspace: bsz, seqlen, answer_vocab_size
+        ans_emb = model_emb.weight[answer_vocab_ids]  # answer_vocab_size, hidden_dim
+        dists = th.cdist(sample.float(), ans_emb.float())  # bsz, seqlen, answer_vocab_size
+        l2_argmin_local = dists.argmin(dim=-1)  # bsz, seqlen (indices into answer_vocab_ids)
+        l2_argmin = answer_vocab_ids[l2_argmin_local]  # remap to full vocab ids
+
+        # confidence: negative mean L2 distance to nearest answer vocab token,
+        # normalised to [0,1] via softmin. Replaces lm_head softmax which
+        # disagreed with L2 rounding for ~53-72% of positions.
+        min_dists = dists.min(dim=-1).values  # bsz, seqlen
+        confidence_per_seq = 1.0 / (1.0 + min_dists.mean(dim=-1))  # bsz, in (0,1]
 
         # rounding_agreement: fraction of positions where logit-argmax == L2-nearest vocab token.
-        # Measures how well the diffusion embedding has converged onto the vocabulary manifold.
-        # Converged model → ~1.0; random embeddings → ~0.0.
-        vocab_emb = model_emb.weight  # vocab_size, hidden_dim
-        # L2 nearest: argmin over vocab of ||sample_pos - vocab_emb||
-        # sample: bsz, seqlen, hidden_dim → expand for pairwise distance
-        dists = th.cdist(sample.float(), vocab_emb.float())  # bsz, seqlen, vocab_size
-        l2_argmin = dists.argmin(dim=-1)  # bsz, seqlen
         logit_argmax = cands.indices.squeeze(-1)  # bsz, seqlen
         agreement_per_seq = (l2_argmin == logit_argmax).float().mean(dim=-1)  # bsz
 
