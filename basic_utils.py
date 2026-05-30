@@ -1,4 +1,5 @@
 import argparse
+import re
 import torch
 import json, os
 import time
@@ -76,6 +77,10 @@ class myTokenizer():
             # tokenizer.decode() leaves ## prefixes intact as separate tokens
             raw_tokens = self.tokenizer.convert_ids_to_tokens(seq, skip_special_tokens=True)
             tokens = self.tokenizer.convert_tokens_to_string(raw_tokens)
+            # strip leading ## if convert_tokens_to_string left one at position 0
+            tokens = re.sub(r'^##\s*', '', tokens)
+            # remove non-ASCII characters (e.g. ∑, π, ∂ from biomedical vocab)
+            tokens = re.sub(r'[^\x00-\x7F]+', ' ', tokens).strip()
         else:
             assert False, "invalid type of vocab_dict"
         return tokens
