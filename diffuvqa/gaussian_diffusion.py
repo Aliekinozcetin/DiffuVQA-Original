@@ -561,12 +561,14 @@ class GaussianDiffusion:
         '''
         reshaped_x_t = x_t
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
-        # print(logits.shape)
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
+        # Upweight [SEP] positions (id=102) so the model learns sequence
+        # boundary explicitly. Without this signal [SEP] is never generated.
+        sep_weight = th.where(input_ids == 102, 2.0, 1.0)
+        decoder_nll = decoder_nll * sep_weight
         if mask != None:
             decoder_nll *= mask
-        # print(decoder_nll.shape)
         if mask != None:
             decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
         else:
