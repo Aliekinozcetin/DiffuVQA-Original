@@ -56,6 +56,10 @@
 - [x] Notebook `RESUME_CHECKPOINT = ""` yapıldı — eski değer `ema_0.9999_375000.pt` hardcoded kalmıştı
 - [x] Notebook train hücresine `--microbatch {MICROBATCH}` eklendi
 - [x] Loss ağırlıkları yeniden ayarlandı — reg `time_weight` sabit 1.0, `lambda_reg` 0.1→0.5, NLL 2x ağırlık
+- [x] `train_util.py` `forward_backward` microbatch bug düzeltildi — `del cond['image_name']` loop içindeydi (KeyError), `loss.backward()` loop dışındaydı (sadece son microbatch gradyanı geri yayılıyordu)
+- [x] `train_util.py` `forward_only` aynı `del` bug'ı düzeltildi
+- [x] `gaussian_diffusion.py` `_token_discrete_loss` NaN guard — `mask.sum().clamp(min=1)` eklendi
+- [x] `eval_DiffuVQA.py` hardcoded çıktı yolu düzeltildi — her dosya için ayrı `{basename}_eval.json`; boş JSONL için ZeroDivisionError guard eklendi
 
 ## Open (nice-to-have, not blocking)
 

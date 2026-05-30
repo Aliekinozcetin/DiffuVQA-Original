@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-30 — Code review: 3 kritik bug düzeltildi
+
+**What:**
+1. `train_util.py` `forward_backward` ve `forward_only`: `del cond['image_name']` microbatch for-loop içindeydi → ikinci iterasyonda `KeyError`. `loss.backward()` loop dışındaydı → sadece son microbatch'in gradyanı geri yayılıyordu, diğer microbatch forward pass'ları boşa gidiyordu. Düzeltme: `image_name` loop öncesinde `pop`, `backward()` loop içine alındı, `micro_image`/`micro_cond` değişkenleri ayrıldı.
+2. `gaussian_diffusion.py` `_token_discrete_loss`: `mask.sum(dim=-1)` sıfır olduğunda `0/0 = NaN` → tüm batch loss'unu zehirliyordu. Düzeltme: `.clamp(min=1)` guard eklendi.
+3. `eval_DiffuVQA.py`: sonuçlar hardcoded `'ema_0.9999_300000.pt.samples.jsonl'`'e yazılıyordu → çoklu dosya değerlendirmesinde her iterasyon öncekini eziyordu. Boş JSONL'de `acc/cnt` ZeroDivisionError. Düzeltme: çıktı `{basename}_eval.json`, boş dosya için `continue` guard.
+**Why:** Microbatch bug'ı `microbatch=0` (default) durumunda tetiklenmediğinden gizli kalmıştı — loop tek iterasyonda tamamlanıyor. `--microbatch` CLI ile küçük değer verilseydi training sessizce yanlış gradyanlarla devam edecekti. NaN bug'ı NLL 2x ağırlık sonrası daha kritik hale geldi.
+
+---
+
 ## 2026-05-30 — Loss ağırlıkları yeniden ayarlandı (embedding collapse düzeltmesi)
 
 **What:**
