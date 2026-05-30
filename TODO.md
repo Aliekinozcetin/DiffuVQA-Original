@@ -55,6 +55,7 @@
 - [x] `train.py` progress.csv corruption düzeltildi — `logger.configure()` trim'den önce çağrılıyordu; CSVOutputFormat eski header'ı cache'liyordu, trim sonrası state uyumsuzluğu satırları bozuyordu. Düzeltme: trim → sonra `logger.configure()`
 - [x] Notebook `RESUME_CHECKPOINT = ""` yapıldı — eski değer `ema_0.9999_375000.pt` hardcoded kalmıştı
 - [x] Notebook train hücresine `--microbatch {MICROBATCH}` eklendi
+- [x] Loss ağırlıkları yeniden ayarlandı — reg `time_weight` sabit 1.0, `lambda_reg` 0.1→0.5, NLL 2x ağırlık
 
 ## Open (nice-to-have, not blocking)
 

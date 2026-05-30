@@ -4,6 +4,22 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-30 — Loss ağırlıkları yeniden ayarlandı (embedding collapse düzeltmesi)
+
+**What:**
+1. `reg` `time_weight`: `_extract_into_tensor(1 - alphabar(t))` → `th.ones(...)` (sabit 1.0)
+2. `lambda_reg` (`sim` tipi): `0.1` → `0.5`
+3. Loss formülü: `terms["nll"]` ve `decoder_nll` katsayısı `1.0` → `2.0`
+
+**Why:** 400k adım sonunda rounding_agreement 0.22→0.11'e düştü, [SEP] hiç üretilmedi, exact match %0.26'ya geriledi. Üç kök neden:
+- `time_weight = 1 - alphabar(t)` → t küçüldükçe reg sıfırlanıyor; vocabulary snap tam t→0'da gerekli ama orada reg kapalı.
+- `lambda_reg=0.1` → MSE+NLL ~0.04'e inince reg ~0.00026 kalıyor, tamamen etkisiz.
+- NLL 1x → `lm_head` çıktısı ile L2 rounding arasındaki gap kapanmıyor; 2x ile vocabulary alignment sinyali güçlendiriliyor.
+
+**Etki:** 50-100k adımda `reg` loss'un sabit kalıp kalmaması ve `rounding_agreement`'ın artmaya başlayıp başlamaması izlenecek. İlk anlamlı kontrol: 100k sampling.
+
+---
+
 ## 2026-05-29 — `train.py` progress.csv corruption on resume düzeltildi
 
 **What:** `logger.configure()` çağrısı CSV trim bloğundan **önce** yapılıyordu. `CSVOutputFormat` dosyayı `a+t` modunda açıp eski header'ı `self.keys`'e yüklüyordu. Trim sonra dosyayı `w` modunda yeniden yazıyordu ama logger'ın bellekteki state stale kalıyordu. İlk `dumpkvs()`'da `writekvs` `extra_keys` görüp header'ı tekrar yazıyor, eski satırları bozuyordu. Düzeltme: trim → sonra `logger.configure()` sırasına alındı.
