@@ -64,6 +64,8 @@
 - [x] `sample_vqa_GPU.py` `clamp_step` default 0→200 — rounding sadece son 200 adımda aktif
 - [x] `rounding.py` + `sample_vqa_GPU.py` answer vocabulary kısıtlama — KNN tüm 30522 token yerine dataset'teki answer token subspace'i üzerinde yapılıyor
 - [x] `sample_vqa_GPU.py` confidence L2 tabanlı hesaplamaya geçildi — lm_head softmax yerine nearest answer vocab token'a L2 mesafesi
+- [x] `rounding.py` lm_head argmax rounding — L2 KNN yerine `get_logits` argmax kullanılıyor; training NLL ile tutarlı seçim mekanizması
+- [x] CLAUDE.md "Do NOT modify" listesi kaldırıldı
 
 ## Open (nice-to-have, not blocking)
 

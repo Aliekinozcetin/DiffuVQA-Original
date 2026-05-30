@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-30 — lm_head argmax rounding (L2 KNN yerine)
+
+**What:** `denoised_fn_round` artık `get_logits` parametresi alıyor. Verildiğinde token seçimi L2 KNN yerine `lm_head(embedding).argmax()` ile yapılıyor. `answer_vocab_ids` kısıtlaması varsa argmax önce o subspace'e uygulanıyor. `get_logits=None` durumunda L2 KNN fallback çalışıyor (geriye dönük uyumlu). `sample_vqa_GPU.py`'de `model.get_logits` geçiriliyor.
+**Why:** L2 KNN ve lm_head iki farklı metrik uzayında çalışıyordu — model NLL'i lm_head üzerinden öğreniyor ama sampling L2 mesafesiyle token seçiyordu. Bu tutarsızlık rounding_agreement'ın 0.12'de kalmasına yol açıyordu. lm_head argmax ile training ve sampling aynı mekanizmayı kullanıyor.
+
+---
+
 ## 2026-05-30 — Sampling kalitesi: 4 inference-time düzeltme
 
 **What:**
