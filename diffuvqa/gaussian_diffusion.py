@@ -605,10 +605,12 @@ class GaussianDiffusion:
         :param reg_loss_type: one of {'sim', 'struct', 'len'}.
         :return: weighted regularization loss, shape [B].
         """
-        time_weight = _extract_into_tensor(1.0 - self.alphas_cumprod, t, (t.shape[0], 1, 1)).view(-1)
+        # time_weight sabit 1.0: (1-alphabar(t)) ile çarpma reg'i t→0'da sıfırlıyordu,
+        # oysa vocabulary snap en çok t→0 bölgesinde gerekli.
+        time_weight = th.ones(t.shape[0], device=t.device, dtype=th.float32)
 
         if reg_loss_type == 'sim':
-            lambda_reg = 0.1
+            lambda_reg = 0.5  # 0.1 → 0.5: MSE+NLL ~0.04'e inince reg etkisizleşiyordu
             pred_mean = pred_answer.mean(dim=1)
             target_mean = target_answer.mean(dim=1)
             reg_loss = 1 - F.cosine_similarity(pred_mean, target_mean, dim=-1)
@@ -723,7 +725,8 @@ class GaussianDiffusion:
             reg_loss_type=reg_loss_type,
         )
 
-        terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + terms["nll"] + decoder_nll + terms["reg"]
+        # NLL 2x ağırlık: lm_head çıktısını L2 rounding ile hizalamak için
+        terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + 2.0 * terms["nll"] + 2.0 * decoder_nll + terms["reg"]
 
         return terms
 
