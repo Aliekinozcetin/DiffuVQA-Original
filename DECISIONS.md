@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-31 — Biobert branch analizi: 4 bug düzeltildi
+
+**What:**
+1. `sample_vqa_GPU.py`: final decode `cands.indices` (full 30K lm_head argmax) → `l2_argmin` (answer_vocab_ids üzerinden). Denoising adımlarında answer vocab kısıtlaması uygulanıyordu ama son decode adımı bunu görmezden geliyordu — "anaphylaxis", "zika", "belgium" gibi tokenlar çıkmasının sebebi buydu.
+2. `basic_utils.py`: `convert_tokens_to_string` sonrası başta kalan `##` strip edildi; ∑, π, ∂ gibi non-ASCII biomedical semboller regex ile temizlendi.
+3. `eval_DiffuVQA.py`: `question="none"` veya `reference_answer="nan/none/""` olan corrupt Kvasir-VQA satırları `continue` ile atlandı.
+**Why:** Error #1 near-zero BLEU/F1'ın birincil sebebiydi — denoising ile decode mekanizması tamamen ayrıştıydı. Error #2-3 metrik hesaplamalarını kirleten post-processing sorunları. Error #4 corrupt veriyle corpus ortalaması bozuluyordu.
+
+---
+
 ## 2026-05-30 — [SEP] token 2x ağırlık: sequence boundary sinyali
 
 **What:** `_token_discrete_loss`'ta CrossEntropyLoss çıktısına `sep_weight = where(input_ids==102, 2.0, 1.0)` çarpılıyor. Hem `decoder_nll` hem `terms["nll"]` bu ağırlığı alıyor (her ikisi de `_token_discrete_loss` üzerinden geçiyor). Mask uygulamasından önce yapılıyor.

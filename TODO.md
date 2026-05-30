@@ -67,6 +67,9 @@
 - [x] `rounding.py` lm_head argmax rounding — L2 KNN yerine `get_logits` argmax kullanılıyor; training NLL ile tutarlı seçim mekanizması
 - [x] CLAUDE.md "Do NOT modify" listesi kaldırıldı
 - [x] `gaussian_diffusion.py` [SEP] token 2x ağırlık — `_token_discrete_loss`'ta [SEP] (id=102) pozisyonlarına ekstra sinyal verildi; 400k adım boyunca [SEP] üretilememesinin sebebi bu sinyalin yokluğuydu
+- [x] `sample_vqa_GPU.py` decode `cands.indices` → `l2_argmin` — denoising answer vocab kısıtlaması decode'a yansımıyordu, full 30K vocab üzerinden decode ediliyordu
+- [x] `basic_utils.py` leading `##` strip + non-ASCII temizliği eklendi
+- [x] `eval_DiffuVQA.py` corrupt Kvasir-VQA satırları (question=none, reference=nan) skip edildi
 
 ## Open (nice-to-have, not blocking)
 
