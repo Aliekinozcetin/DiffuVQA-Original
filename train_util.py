@@ -239,38 +239,23 @@ class TrainLoop:
     def forward_only(self, image, cond):
         with th.no_grad():
             zero_grad(self.model_params)
+            cond.pop('image_name', None)  # remove once before microbatch loop
             for i in range(0, image.shape[0], self.microbatch):
-                image = image[i: i + self.microbatch].to(dist_util.dev())
-                del cond['image_name']
-                cond = {
+                micro_image = image[i: i + self.microbatch].to(dist_util.dev())
+                micro_cond = {
                     k: v[i: i + self.microbatch].to(dist_util.dev())
                     for k, v in cond.items()
                 }
-                last_batch = (i + self.microbatch) >= image.shape[0]
-                # image = image.to(dist_util.dev())
-                # del cond['qid']
-                # del cond['img_id']
-                micro_cond = {
-                    k: v.to(dist_util.dev())
-                    for k, v in cond.items()
-                }
-                # last_batch = (i + self.microbatch) >= image.shape[0]
-                t, weights = self.schedule_sampler.sample(image.shape[0], dist_util.dev())
-                # print(micro_cond.keys())
+                t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
                 compute_losses = functools.partial(
                     self.diffusion.training_losses,
                     self.ddp_model,
-                    image,
+                    micro_image,
                     t,
-                    model_kwargs=cond,
-
+                    model_kwargs=micro_cond,
                 )
 
-                # if last_batch or not self.use_ddp:
                 losses = compute_losses()
-                # else:
-                #     with self.ddp_model.no_sync():
-                #         losses = compute_losses()
                 loss = (losses["loss"] * weights).mean()
                 log_loss_dict(
                     self.diffusion, t, {f"eval_{k}": v * weights for k, v in losses.items()}
@@ -279,42 +264,39 @@ class TrainLoop:
 
     def forward_backward(self, image, cond):
         zero_grad(self.model_params)
+        cond.pop('image_name', None)  # remove once before microbatch loop
         for i in range(0, image.shape[0], self.microbatch):
-            image = image[i: i + self.microbatch].to(dist_util.dev())
-            del cond['image_name']
-            cond = {
+            micro_image = image[i: i + self.microbatch].to(dist_util.dev())
+            micro_cond = {
                 k: v[i: i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
             }
-            t, weights = self.schedule_sampler.sample(image.shape[0], dist_util.dev())
+            t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
                 self.ddp_model,
-                image,
+                micro_image,
                 t,
-                model_kwargs=cond,
+                model_kwargs=micro_cond,
             )
 
             losses = compute_losses()
-            # else:
-            #     with self.ddp_model.no_sync():
-            #         losses = compute_losses()
 
-        if isinstance(self.schedule_sampler, LossAwareSampler):
-            self.schedule_sampler.update_with_local_losses(
-                t, losses["loss"].detach()
+            if isinstance(self.schedule_sampler, LossAwareSampler):
+                self.schedule_sampler.update_with_local_losses(
+                    t, losses["loss"].detach()
+                )
+
+            loss = (losses["loss"] * weights).mean()
+            self._last_loss = loss.item()
+            log_loss_dict(
+                self.diffusion, t, {k: v * weights for k, v in losses.items()}
             )
-
-        loss = (losses["loss"] * weights).mean()
-        self._last_loss = loss.item()
-        log_loss_dict(
-            self.diffusion, t, {k: v * weights for k, v in losses.items()}
-        )
-        if self.use_fp16:
-            loss_scale = 2 ** self.lg_loss_scale
-            (loss * loss_scale).backward()
-        else:
-            loss.backward()
+            if self.use_fp16:
+                loss_scale = 2 ** self.lg_loss_scale
+                (loss * loss_scale).backward()
+            else:
+                loss.backward()
 
     def optimize_fp16(self):
         if any(not th.isfinite(p.grad).all() for p in self.model_params):

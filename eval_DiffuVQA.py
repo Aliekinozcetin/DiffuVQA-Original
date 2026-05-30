@@ -231,6 +231,9 @@ if __name__ == '__main__':
                 sourceDict[cnt].append(source)
                 cnt += 1
 
+        if cnt == 0:
+            print(f"Skipping empty file: {path}")
+            continue
         accuracy = acc / cnt
 
         P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
@@ -261,7 +264,8 @@ if __name__ == '__main__':
             'acc_YN':acc_yn/c_yn,
             'acc_OE': acc_oe/c_oe,
         }
-        with open('ema_0.9999_300000.pt.samples.jsonl', 'w') as f:
+        out_name = os.path.splitext(os.path.basename(path))[0] + '_eval.json'
+        with open(out_name, 'w') as f:
             json.dump(results, f, indent=4)
 
     if len(files) > 1:
