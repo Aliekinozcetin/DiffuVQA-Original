@@ -60,6 +60,10 @@
 - [x] `train_util.py` `forward_only` aynı `del` bug'ı düzeltildi
 - [x] `gaussian_diffusion.py` `_token_discrete_loss` NaN guard — `mask.sum().clamp(min=1)` eklendi
 - [x] `eval_DiffuVQA.py` hardcoded çıktı yolu düzeltildi — her dosya için ayrı `{basename}_eval.json`; boş JSONL için ZeroDivisionError guard eklendi
+- [x] `basic_utils.py` `decode_token` `##` wordpiece fix — `convert_ids_to_tokens` + `convert_tokens_to_string` kullanıldı
+- [x] `sample_vqa_GPU.py` `clamp_step` default 0→200 — rounding sadece son 200 adımda aktif
+- [x] `rounding.py` + `sample_vqa_GPU.py` answer vocabulary kısıtlama — KNN tüm 30522 token yerine dataset'teki answer token subspace'i üzerinde yapılıyor
+- [x] `sample_vqa_GPU.py` confidence L2 tabanlı hesaplamaya geçildi — lm_head softmax yerine nearest answer vocab token'a L2 mesafesi
 
 ## Open (nice-to-have, not blocking)
 

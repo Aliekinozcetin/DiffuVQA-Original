@@ -4,6 +4,17 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-30 — Sampling kalitesi: 4 inference-time düzeltme
+
+**What:**
+1. `basic_utils.py` `decode_token`: `tokenizer.decode()` → `convert_ids_to_tokens` + `convert_tokens_to_string`. `##` wordpiece token'ları artık birleşiyor (col+##on+##oscopy → colonoscopy).
+2. `sample_vqa_GPU.py` `clamp_step` default: 0 → 200. Rounding tüm 2500 adım yerine sadece son 200 adımda aktif — erken denoising'de serbest continuous keşif.
+3. `rounding.py` + `sample_vqa_GPU.py` answer vocab kısıtlama: KNN 30522 token yerine dataset'teki answer position token'larıyla kısıtlı (~birkaç yüz token). Pattern A (%72 garbled output) için ana fix.
+4. `sample_vqa_GPU.py` confidence: lm_head softmax → `1/(1+mean_L2_dist)`. lm_head ile L2 rounding %53-72 pozisyonda anlaşmazlık içindeydi, confidence skoru anlamsızdı.
+**Why:** 400k sampling analizinde rounding_agreement 0.11'e düşmüş, [SEP] hiç üretilmemiş, %72 garbled output gözlemlendi. Tüm sorunlar inference-time — eğitimi etkilemiyor, mevcut ve gelecek checkpoint'lerde hemen etkili.
+
+---
+
 ## 2026-05-30 — Code review: 3 kritik bug düzeltildi
 
 **What:**
