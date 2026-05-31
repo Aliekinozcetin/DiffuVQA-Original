@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-01 — SEP anchor: sıfırdan training kararı
+
+**What:**
+1. `vqa_datasets.py` `merge_and_mask`: SEP token (id=102) answer pozisyonlarında artık `mask=0` (anchored, noise eklenmez). Önceki haliyle tüm answer pozisyonları `mask=1` (noised) idi — SEP dahil. Model SEP'in nerede olduğunu hiç bilmiyordu.
+2. `gaussian_diffusion.py` `_token_discrete_loss`: SEP loss ayrı hesaplanıyor, sequence normalizasyonundan çıkarıldı. `total = content_nll + 3.0 * sep_loss`. Önceki haliyle SEP loss sequence ortalamasına gömülüyordu.
+3. `sample_vqa_GPU.py`: Sampling başlangıcında SEP embedding, x_start'taki SEP pozisyonuna yerleştiriliyor. Training mask convention ile tutarlı.
+**Why:** 400k adım sonunda [SEP] üretim oranı %0. Root cause: tüm answer pozisyonları (SEP dahil) saf noise'dan başlıyordu. Model SEP'in hangi pozisyonda olduğunu öğrenemiyor, loss sinyali sequence ortalamasında kayboluyor. SEP anchor ile model her zaman SEP'in doğru pozisyonunu görüyor. Sıfırdan training başlatılıyor.
+
+---
+
 ## 2026-06-01 — Derin kod incelemesi: 6 bug düzeltildi
 
 **What:**
