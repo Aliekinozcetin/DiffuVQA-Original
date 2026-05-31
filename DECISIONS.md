@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-05-31 — Decode fix: lm_head masked logits, l2_argmin kaldırıldı
+
+**What:** `sample_vqa_GPU.py` decode adımında `l2_argmin` → `masked_logits.argmax()`. `lm_head` logitleri `answer_vocab_ids` dışındaki token'lara `-inf` uygulanarak maskeleniyor, sonra argmax alınıyor. `l2_argmin` tamamen kaldırıldı. Confidence `masked_logits` üzerinden softmax max olarak güncellendi.
+**Why:** `l2_argmin` answer vocab subspace'i üzerinden hesaplanıyordu ama bu subspace training data'daki tüm answer token'larını içeriyordu — "clip", "barrett", "snare", "injection" gibi gürültülü token'lar da vardı. 200k sampling'de exact match %0.74 → %0.00'a düştü, gen_length 7 → 20 kelimeye çıktı. `masked_logits.argmax()` ile lm_head'in öğrendiği dağılım korunurken answer vocab kısıtlaması da sağlanıyor.
+
+---
+
 ## 2026-05-31 — Biobert branch analizi: 4 bug düzeltildi
 
 **What:**
