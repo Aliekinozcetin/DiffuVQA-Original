@@ -70,6 +70,11 @@
 - [x] `sample_vqa_GPU.py` decode `cands.indices` → `l2_argmin` — denoising answer vocab kısıtlaması decode'a yansımıyordu, full 30K vocab üzerinden decode ediliyordu
 - [x] `basic_utils.py` leading `##` strip + non-ASCII temizliği eklendi
 - [x] `eval_DiffuVQA.py` corrupt Kvasir-VQA satırları (question=none, reference=nan) skip edildi
+- [x] `weight_decay` 0.0→0.01 — embedding collapse'ın asıl sebebi; 6 gradient kaynağı altında tied word_embedding drift ediyordu
+- [x] `_anneal_lr` LR floor `max(lr, 0.0)` eklendi; `log_step`'e LR logging eklendi
+- [x] Test dataloader `shuffle=False, drop_last=False` — metrikler artık reproducible
+- [x] `input_a_id` `.pop()` ile model_kwargs'dan temizlendi
+- [x] `pre_answer_loss` 150k sonra gate edildi — late-training embedding drift'inde gradient spike önlenir
 
 ## Open (nice-to-have, not blocking)
 

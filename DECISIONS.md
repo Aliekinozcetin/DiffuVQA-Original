@@ -4,6 +4,18 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-01 — Derin kod incelemesi: 6 bug düzeltildi
+
+**What:**
+1. `weight_decay` 0.0→0.01: `config.json` ve `AdamW` çağrıları. Biobert 500k confidence collapse (0.50→0.14) root cause: tied word_embedding 6 gradient kaynağı altında L2 kısıtı olmadan drift ediyordu.
+2. `_anneal_lr` LR floor: `max(lr, 0.0)` — negatif LR koruması. `log_step`'e `lr` loglama eklendi.
+3. Test dataloader: `shuffle=False, drop_last=False` — metrikler artık reproducible; önceki tüm exact match rakamları farklı sample population üzerindeydi.
+4. `input_a_id` model_kwargs'tan `.pop()` ile temizlendi — `_WrappedModel` maskeliyordu ama label leakage riski vardı.
+5. `pre_answer_loss` gate: 150k adım sonra 0'a iniyor. Late-training'de near-zero katkı ama embedding drift'inde gradient spike riski var.
+**Why:** Biobert 500k analizi root cause araştırması. weight_decay=0.0 + 6 loss terimi + tied weights = embedding drift garantisi. Bu değişikliklerle embedding collapse riskini minimize ettik.
+
+---
+
 ## 2026-05-31 — Decode fix: lm_head masked logits, l2_argmin kaldırıldı
 
 **What:** `sample_vqa_GPU.py` decode adımında `l2_argmin` → `masked_logits.argmax()`. `lm_head` logitleri `answer_vocab_ids` dışındaki token'lara `-inf` uygulanarak maskeleniyor, sonra argmax alınıyor. `l2_argmin` tamamen kaldırıldı. Confidence `masked_logits` üzerinden softmax max olarak güncellendi.
