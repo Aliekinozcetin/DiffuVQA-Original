@@ -653,7 +653,7 @@ class GaussianDiffusion:
         assert 'input_ids' in model_kwargs
         reg_loss_type = model_kwargs.pop('reg_loss_type', 'sim')
         input_ids_x = model_kwargs.pop('input_ids').to(t.device)
-        input_ids_a = model_kwargs['input_a_id'].to(t.device)
+        input_ids_a = model_kwargs.pop('input_a_id').to(t.device)
         # x_start_arr = model.model.module.get_embeds(input_ids_x)
         mask = model_kwargs.pop('input_mask').to(t.device)
 
@@ -695,7 +695,11 @@ class GaussianDiffusion:
         # terms["x_mse"] = mean_flat((x_start - model_output[:, model_output.size(1)//2:, :]) ** 2)
         # terms["cond_mse"] = mean_flat(((ddpm_input_pre - model_output[:, :model_output.size(1)//2, :]) ** 2))
 
-        pre_answer_loss = mean_flat((ans_emb_pre - ans_emb) ** 2)
+        # pre_answer_loss anchors the CVAE branch early in training.
+        # Gate it out after step 150k: at convergence it is near-zero and contributes
+        # negligible gradient; if embedding space drifts it can spike and corrupt gradients.
+        pre_answer_weight = model_kwargs.pop('pre_answer_weight', 1.0)
+        pre_answer_loss = pre_answer_weight * mean_flat((ans_emb_pre - ans_emb) ** 2)
         # cosine_similarity_loss = mean_flat(1 - F.cosine_similarity(ans_emb_pre, ans_emb, dim=-1))
 
         cond_model_out_x_start = self._x0_helper(model_output, x_t, t)['pred_xstart']  # predicted_xstart = model_output

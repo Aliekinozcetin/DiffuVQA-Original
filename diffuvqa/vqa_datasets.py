@@ -60,10 +60,9 @@ def load_data_vqa(
     else:
         data_loader = DataLoader(
             dataset,
-            batch_size=batch_size,  # 20,
-            drop_last=True,
-            # sampler=sampler,
-            shuffle=True,
+            batch_size=batch_size,
+            drop_last=False,
+            shuffle=False,
             num_workers=4,
         )
 
