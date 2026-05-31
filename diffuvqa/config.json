@@ -39,7 +39,7 @@
   "fp16_scale_growth": 0.001,
   "seed": 102,
   "gradient_clipping": 0.5,
-  "weight_decay": 0.0,
+  "weight_decay": 0.01,
   "learn_sigma": false,
   "use_kl": false,
   "predict_xstart": true,
