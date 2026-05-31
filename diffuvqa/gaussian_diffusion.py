@@ -563,18 +563,24 @@ class GaussianDiffusion:
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
-        # Upweight [SEP] positions (id=102) so the model learns sequence
-        # boundary explicitly. Without this signal [SEP] is never generated.
-        sep_weight = th.where(input_ids == 102, 2.0, 1.0)
-        decoder_nll = decoder_nll * sep_weight
-        if mask != None:
-            decoder_nll *= mask
-        if mask != None:
-            decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
-        else:
-            decoder_nll = decoder_nll.mean(dim=-1)
 
-        return decoder_nll
+        # Separate [SEP] loss from content token loss so it is never averaged
+        # away. [SEP] anchored in mask so it receives its own gradient signal
+        # independently of sequence length normalization.
+        sep_mask = (input_ids == 102).float()          # 1 at [SEP] positions
+        content_mask = (mask - sep_mask).clamp(min=0) if mask is not None else None
+
+        # SEP loss: mean over batch (not normalized by sequence length)
+        sep_loss = (decoder_nll * sep_mask).sum(dim=-1) / sep_mask.sum(dim=-1).clamp(min=1)
+
+        # Content loss: normalized by non-SEP answer token count
+        if content_mask is not None:
+            content_nll = (decoder_nll * content_mask).sum(dim=-1) / content_mask.sum(dim=-1).clamp(min=1)
+        else:
+            content_nll = decoder_nll.mean(dim=-1)
+
+        # Combine: SEP weighted 3x relative to content tokens
+        return content_nll + 3.0 * sep_loss
 
     def _x0_helper(self, model_output, x, t):
 
