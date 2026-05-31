@@ -563,18 +563,24 @@ class GaussianDiffusion:
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
-        # Upweight [SEP] positions (id=102) so the model learns sequence
-        # boundary explicitly. Without this signal [SEP] is never generated.
-        sep_weight = th.where(input_ids == 102, 2.0, 1.0)
-        decoder_nll = decoder_nll * sep_weight
-        if mask != None:
-            decoder_nll *= mask
-        if mask != None:
-            decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
-        else:
-            decoder_nll = decoder_nll.mean(dim=-1)
 
-        return decoder_nll
+        # Separate [SEP] loss from content token loss so it is never averaged
+        # away. [SEP] anchored in mask so it receives its own gradient signal
+        # independently of sequence length normalization.
+        sep_mask = (input_ids == 102).float()          # 1 at [SEP] positions
+        content_mask = (mask - sep_mask).clamp(min=0) if mask is not None else None
+
+        # SEP loss: mean over batch (not normalized by sequence length)
+        sep_loss = (decoder_nll * sep_mask).sum(dim=-1) / sep_mask.sum(dim=-1).clamp(min=1)
+
+        # Content loss: normalized by non-SEP answer token count
+        if content_mask is not None:
+            content_nll = (decoder_nll * content_mask).sum(dim=-1) / content_mask.sum(dim=-1).clamp(min=1)
+        else:
+            content_nll = decoder_nll.mean(dim=-1)
+
+        # Combine: SEP weighted 3x relative to content tokens
+        return content_nll + 3.0 * sep_loss
 
     def _x0_helper(self, model_output, x, t):
 
@@ -607,10 +613,12 @@ class GaussianDiffusion:
         :param reg_loss_type: one of {'sim', 'struct', 'len'}.
         :return: weighted regularization loss, shape [B].
         """
-        time_weight = _extract_into_tensor(1.0 - self.alphas_cumprod, t, (t.shape[0], 1, 1)).view(-1)
+        # time_weight sabit 1.0: (1-alphabar(t)) ile çarpma reg'i t→0'da sıfırlıyordu,
+        # oysa vocabulary snap en çok t→0 bölgesinde gerekli.
+        time_weight = th.ones(t.shape[0], device=t.device, dtype=th.float32)
 
         if reg_loss_type == 'sim':
-            lambda_reg = 0.1
+            lambda_reg = 0.5  # 0.1 → 0.5: MSE+NLL ~0.04'e inince reg etkisizleşiyordu
             pred_mean = pred_answer.mean(dim=1)
             target_mean = target_answer.mean(dim=1)
             reg_loss = 1 - F.cosine_similarity(pred_mean, target_mean, dim=-1)
@@ -729,7 +737,8 @@ class GaussianDiffusion:
             reg_loss_type=reg_loss_type,
         )
 
-        terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + terms["nll"] + decoder_nll + terms["reg"]
+        # NLL 2x ağırlık: lm_head çıktısını L2 rounding ile hizalamak için
+        terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + 2.0 * terms["nll"] + 2.0 * decoder_nll + terms["reg"]
 
         return terms
 

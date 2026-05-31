@@ -109,15 +109,28 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
     def merge_and_mask(group_lst):
         lst = []
         mask = []
+        SEP_ID = 102  # bert-base-uncased [SEP] token id
         for i in range(len(group_lst['input_id_q'])):
-            mask_zero = [0] * len(group_lst['input_id_q'][i])
-            mask_one = [1] * len(group_lst['input_id_a'][i])
-        
-            lst.append(group_lst['input_id_q'][i] + group_lst['input_id_a'][i])
+            q_ids = group_lst['input_id_q'][i]
+            a_ids = group_lst['input_id_a'][i]
 
-            mask.append(mask_zero + mask_one)
+            mask_zero = [0] * len(q_ids)  # question: anchored (not noised)
+
+            # Answer mask: 1=noised for content tokens, 0=anchored for [SEP].
+            # Anchoring [SEP] gives the model a fixed target to converge toward
+            # at the sequence boundary. Without this, the model never learns
+            # where the answer ends (observed: 0% [SEP] generation after 400k steps).
+            mask_a = []
+            for tok in a_ids:
+                if tok == SEP_ID:
+                    mask_a.append(0)  # anchor SEP — not noised
+                else:
+                    mask_a.append(1)  # noise content tokens and padding
+
+            lst.append(q_ids + a_ids)
+            mask.append(mask_zero + mask_a)
+
         group_lst['input_ids'] = lst
-        
         group_lst['input_mask'] = mask
         return group_lst
     
@@ -290,7 +303,7 @@ if __name__ == "__main__":
     parser.add_argument('--image_dir', type=str, default='datasets/Med_RAD/image_folder')
     parser.add_argument('--vocab_path', type=str, default='datasets/vocab.json')
     parser.add_argument('--vocab', type=str, default='bert')
-    parser.add_argument('--config_name', type=str, default='dmis-lab/biobert-base-cased-v1.2')
+    parser.add_argument('--config_name', type=str, default='bert-base-uncased')
     parser.add_argument('--checkpoint_path', type=str, default='diffuvqa/config')
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--seq_len', type=int, default=64)
