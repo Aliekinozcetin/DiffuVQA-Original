@@ -104,7 +104,7 @@ class TrainLoop:
         self.opt = AdamW(self.master_params, lr=self.lr, weight_decay=self.weight_decay)
         if self.resume_step:
             frac_done = (self.step + self.resume_step) / self.learning_steps
-            lr = self.lr * (1 - frac_done)
+            lr = max(self.lr * (1 - frac_done), 0.0)
             self.opt = AdamW(self.master_params, lr=lr, weight_decay=self.weight_decay)
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
@@ -265,12 +265,17 @@ class TrainLoop:
     def forward_backward(self, image, cond):
         zero_grad(self.model_params)
         cond.pop('image_name', None)  # remove once before microbatch loop
+        # Gate pre_answer_loss: full weight up to step 150k, zero after.
+        # Prevents late-training CVAE gradient spikes if embedding space drifts.
+        global_step = self.step + self.resume_step
+        pre_answer_weight = max(0.0, 1.0 - global_step / 150000)
         for i in range(0, image.shape[0], self.microbatch):
             micro_image = image[i: i + self.microbatch].to(dist_util.dev())
             micro_cond = {
                 k: v[i: i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
             }
+            micro_cond['pre_answer_weight'] = pre_answer_weight
             t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
@@ -358,13 +363,14 @@ class TrainLoop:
         if not self.learning_steps:
             return
         frac_done = (self.step + self.resume_step) / self.learning_steps
-        lr = self.lr * (1 - frac_done)
+        lr = max(self.lr * (1 - frac_done), 0.0)
         for param_group in self.opt.param_groups:
             param_group["lr"] = lr
 
     def log_step(self):
         logger.logkv("step", self.step + self.resume_step)
         logger.logkv("samples", (self.step + self.resume_step + 1) * self.global_batch)
+        logger.logkv("lr", self.opt.param_groups[0]["lr"])
         if self.use_fp16:
             logger.logkv("lg_loss_scale", self.lg_loss_scale)
 
