@@ -253,7 +253,7 @@ if __name__ == '__main__':
 
         P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
         precision, recall, f1_score = calculate_f1(references, recovers)
-        CIDer =  cider_score(references, recovers)
+        CIDer =  cider_score(recovers, references)
 
         import json
 

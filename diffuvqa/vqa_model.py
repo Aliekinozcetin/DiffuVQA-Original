@@ -143,6 +143,8 @@ class feature_fusion(nn.Module):
             image_feats + self.modality_type_embeddings(torch.full_like(image_masks, 1)),
         )
 
+        # Use question_feats (post-encoder) consistently instead of question_emb
+        # (pre-encoder raw embedding). Mixing the two adds incompatible scales.
         pre_simu_answer_feats = self.cvae(question_feats + image_feats)
 
         f1 = self.cross_attention(pre_simu_answer_feats, question_feats, question_feats)
@@ -185,7 +187,7 @@ class TransformerNetModel(nn.Module):
             hidden_t_dim,
             dropout=0,
             config=None,
-            config_name='dmis-lab/biobert-base-cased-v1.2',
+            config_name='bert-base-uncased',
             vocab_size=None,
             init_pretrained='no',
             logits_mode=1,
