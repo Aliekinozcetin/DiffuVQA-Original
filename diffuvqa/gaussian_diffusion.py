@@ -866,6 +866,9 @@ class GaussianDiffusion:
                 model_kwargs=model_kwargs,
                 device=device,
                 progress=progress,
+                top_p=top_p,
+                clamp_step=clamp_step,
+                clamp_first=clamp_first,
                 mask=mask,
                 x_start=x_start,
                 gap=gap
@@ -885,6 +888,9 @@ class GaussianDiffusion:
             progress=False,
             eta=0.0,
             langevin_fn=None,
+            top_p=None,
+            clamp_step=None,
+            clamp_first=None,
             mask=None,
             x_start=None,
             gap=1
@@ -912,13 +918,21 @@ class GaussianDiffusion:
 
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
+            # Apply same clamp logic as p_sample_loop_progressive
+            if clamp_first is not None and clamp_step is not None:
+                if clamp_first:
+                    denoised_fn_cur = denoised_fn if i >= clamp_step else None
+                else:
+                    denoised_fn_cur = None if i > clamp_step else denoised_fn
+            else:
+                denoised_fn_cur = denoised_fn
             with th.no_grad():
                 out = self.ddim_sample(
                     model,
                     sample_x,
                     t,
                     clip_denoised=clip_denoised,
-                    denoised_fn=denoised_fn,
+                    denoised_fn=denoised_fn_cur,
                     model_kwargs=model_kwargs,
                     mask=mask,
                     x_start=x_start
