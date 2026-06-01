@@ -918,13 +918,14 @@ class GaussianDiffusion:
 
         for i in indices:
             t = th.tensor([i] * shape[0], device=device)
-            # mirror p_sample_loop_progressive clamp logic
-            if clamp_first is None or clamp_step is None:
-                denoised_fn_cur = denoised_fn
-            elif not clamp_first:
-                denoised_fn_cur = denoised_fn if i <= clamp_step else None
+            # Apply same clamp logic as p_sample_loop_progressive
+            if clamp_first is not None and clamp_step is not None:
+                if clamp_first:
+                    denoised_fn_cur = denoised_fn if i >= clamp_step else None
+                else:
+                    denoised_fn_cur = None if i > clamp_step else denoised_fn
             else:
-                denoised_fn_cur = denoised_fn if i >= clamp_step else None
+                denoised_fn_cur = denoised_fn
             with th.no_grad():
                 out = self.ddim_sample(
                     model,
@@ -1052,5 +1053,6 @@ class _WrappedModel:
         if self.rescale_timesteps:
             new_ts = new_ts.float() * (1000.0 / self.original_num_steps)
 
-        return self.model(x, new_ts, **kwargs)
+        # return self.model(x, new_ts, **kwargs)
+        return self.model(x, new_ts)
 

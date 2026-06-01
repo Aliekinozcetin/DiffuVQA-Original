@@ -135,11 +135,6 @@ def main():
     data_test = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args, model_emb=model_emb.cpu(),
                                transform=transform, split=args.split, loaded_vocab=tokenizer, loop=False)
 
-    # Build answer vocab from TRAIN split so test-set statistics are not leaked.
-    data_train_vocab = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args,
-                                     model_emb=model_emb.cpu(), transform=transform,
-                                     split='train', loaded_vocab=tokenizer, loop=False)
-
     start_t = time.time()
 
     # e.g. checkpoint: .../lr1e-05/ema_0.9999_200000.pt
@@ -167,16 +162,22 @@ def main():
 
     model_emb.to(th.device("cuda"))
 
-    # Build answer vocabulary from TRAIN split — avoids leaking test-set answer
-    # statistics into the rounding step, which would be unavailable at deployment.
+    # Build answer vocabulary from the TRAIN split (not test) so the model
+    # does not benefit from test-set answer statistics at inference time.
+    data_train = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args,
+                               model_emb=model_emb.cpu(), transform=transform,
+                               split='train', loaded_vocab=tokenizer, loop=False)
     answer_vocab_set = set()
-    for _, cond in data_train_vocab:
-        ids = cond['input_a_id']
-        if isinstance(ids, torch.Tensor):
-            answer_vocab_set.update(ids.view(-1).tolist())
-        else:
-            for row in ids:
-                answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
+    try:
+        for _, cond_tr in data_train:
+            ids = cond_tr['input_a_id']
+            if isinstance(ids, torch.Tensor):
+                answer_vocab_set.update(ids.view(-1).tolist())
+            else:
+                for row in ids:
+                    answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
+    except StopIteration:
+        pass
     # always keep special tokens so [CLS]/[SEP]/[PAD] boundaries work
     special_ids = {tokenizer.tokenizer.cls_token_id,
                    tokenizer.tokenizer.sep_token_id,
