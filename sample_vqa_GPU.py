@@ -162,17 +162,22 @@ def main():
 
     model_emb.to(th.device("cuda"))
 
-    # Build answer vocabulary: collect all unique token ids that appear in
-    # answer positions across the dataset, then restrict KNN rounding to
-    # this subspace. Prevents spurious biomedical tokens from dominating L2.
+    # Build answer vocabulary from the TRAIN split (not test) so the model
+    # does not benefit from test-set answer statistics at inference time.
+    data_train = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args,
+                               model_emb=model_emb.cpu(), transform=transform,
+                               split='train', loaded_vocab=tokenizer, loop=False)
     answer_vocab_set = set()
-    for cond in all_text_data:
-        ids = cond['input_a_id']  # (B, seq_len) or list of tensors
-        if isinstance(ids, torch.Tensor):
-            answer_vocab_set.update(ids.view(-1).tolist())
-        else:
-            for row in ids:
-                answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
+    try:
+        for _, cond_tr in data_train:
+            ids = cond_tr['input_a_id']
+            if isinstance(ids, torch.Tensor):
+                answer_vocab_set.update(ids.view(-1).tolist())
+            else:
+                for row in ids:
+                    answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
+    except StopIteration:
+        pass
     # always keep special tokens so [CLS]/[SEP]/[PAD] boundaries work
     special_ids = {tokenizer.tokenizer.cls_token_id,
                    tokenizer.tokenizer.sep_token_id,
