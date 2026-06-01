@@ -43,17 +43,24 @@ def create_argparser():
 
 
 def calculate_f1(labels, preds, threshold=0.8):
-    tp, fp, fn = 0, 0, 0
+    # Standard token-level F1: count shared tokens between prediction and reference.
+    # threshold parameter kept for API compatibility but unused.
+    total_tp = total_fp = total_fn = 0
     for label, pred in zip(labels, preds):
-        similarity_score = 1 - edit_distance(label, pred) / max(len(label), len(pred))
-        if similarity_score >= threshold:
-            tp += 1
-        else:
-            fp += 1
-    fn = len(labels) - tp
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        ref_tokens = label.lower().split()
+        pred_tokens = pred.lower().split()
+        from collections import Counter
+        ref_counts = Counter(ref_tokens)
+        pred_counts = Counter(pred_tokens)
+        tp = sum((ref_counts & pred_counts).values())
+        fp = sum(pred_counts.values()) - tp
+        fn = sum(ref_counts.values()) - tp
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+    precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+    recall    = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
+    f1_score  = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
     return precision, recall, f1_score
 
 

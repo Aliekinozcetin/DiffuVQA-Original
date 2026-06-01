@@ -135,6 +135,11 @@ def main():
     data_test = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args, model_emb=model_emb.cpu(),
                                transform=transform, split=args.split, loaded_vocab=tokenizer, loop=False)
 
+    # Build answer vocab from TRAIN split so test-set statistics are not leaked.
+    data_train_vocab = load_data_vqa(batch_size=args.batch_size, seq_len=args.seq_len, args=args,
+                                     model_emb=model_emb.cpu(), transform=transform,
+                                     split='train', loaded_vocab=tokenizer, loop=False)
+
     start_t = time.time()
 
     # e.g. checkpoint: .../lr1e-05/ema_0.9999_200000.pt
@@ -162,12 +167,11 @@ def main():
 
     model_emb.to(th.device("cuda"))
 
-    # Build answer vocabulary: collect all unique token ids that appear in
-    # answer positions across the dataset, then restrict KNN rounding to
-    # this subspace. Prevents spurious biomedical tokens from dominating L2.
+    # Build answer vocabulary from TRAIN split — avoids leaking test-set answer
+    # statistics into the rounding step, which would be unavailable at deployment.
     answer_vocab_set = set()
-    for cond in all_text_data:
-        ids = cond['input_a_id']  # (B, seq_len) or list of tensors
+    for _, cond in data_train_vocab:
+        ids = cond['input_a_id']
         if isinstance(ids, torch.Tensor):
             answer_vocab_set.update(ids.view(-1).tolist())
         else:

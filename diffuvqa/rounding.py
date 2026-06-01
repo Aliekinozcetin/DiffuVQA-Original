@@ -92,27 +92,45 @@ def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None, get_logit
     old_shape = text_emb.shape
     old_device = text_emb.device
 
-    if len(text_emb.shape) > 2:
-        text_emb = text_emb.reshape(-1, text_emb.size(-1))
+    # text_emb shape: (B, 2*seq_len, hidden) — first half is question, second is answer.
+    # answer_vocab restriction must only apply to the answer half; applying it to the
+    # question half distorts the conditioning signal fed into the next denoising step.
+    if answer_vocab_ids is not None and len(old_shape) == 3:
+        B, seq2, hidden = old_shape
+        seq_len = seq2 // 2
+        q_emb = text_emb[:, :seq_len, :]   # (B, seq_len, hidden)
+        a_emb = text_emb[:, seq_len:, :]   # (B, seq_len, hidden)
+
+        q_rounded = _round_half(args, model, q_emb, old_device,
+                                answer_vocab_ids=None, get_logits=get_logits)
+        a_rounded = _round_half(args, model, a_emb, old_device,
+                                answer_vocab_ids=answer_vocab_ids, get_logits=get_logits)
+        return torch.cat([q_rounded, a_rounded], dim=1)
+
+    # fallback: no answer_vocab or flat input — round everything uniformly
+    flat = text_emb.reshape(-1, text_emb.size(-1)) if len(old_shape) > 2 else text_emb
+    rounded = _round_half(args, model, flat.unsqueeze(0), old_device,
+                          answer_vocab_ids=None, get_logits=get_logits)
+    return rounded.view(old_shape).to(old_device)
+
+
+def _round_half(args, model, emb, device, answer_vocab_ids=None, get_logits=None):
+    """Round a (B, L, hidden) embedding to nearest token embeddings."""
+    old_shape = emb.shape
+    flat = emb.reshape(-1, emb.size(-1))  # (B*L, hidden)
 
     if get_logits is not None:
-        # lm_head argmax: use the same selection mechanism as NLL training.
-        # This keeps rounding consistent with what the model optimises,
-        # unlike L2 KNN which operates in a different metric space.
-        logits = get_logits(text_emb.to(old_device))  # (bsz*seqlen, vocab)
+        logits = get_logits(flat.to(device))  # (B*L, vocab)
         if answer_vocab_ids is not None:
-            # restrict to answer subspace before argmax
             logits = logits[:, answer_vocab_ids]
             rounded_tokens = answer_vocab_ids[logits.argmax(dim=-1)]
         else:
             rounded_tokens = logits.argmax(dim=-1)
     else:
-        # fallback: L2 KNN (original behaviour)
         model_emb = model.weight
         knn_emb = model_emb[answer_vocab_ids] if answer_vocab_ids is not None else model_emb
-        val, indices = get_efficient_knn(knn_emb, text_emb.to(knn_emb.device))
+        val, indices = get_efficient_knn(knn_emb, flat.to(knn_emb.device))
         rounded_tokens = answer_vocab_ids[indices[0]] if answer_vocab_ids is not None else indices[0]
 
-    new_embeds = model(rounded_tokens).view(old_shape).to(old_device)
-    return new_embeds
+    return model(rounded_tokens).view(old_shape).to(device)
 
