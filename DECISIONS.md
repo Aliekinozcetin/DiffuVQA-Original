@@ -4,6 +4,20 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-01 — 350k sampling analizi: 5 bug düzeltildi
+
+**What:**
+1. `gaussian_diffusion.py` [C-3]: `ddim_sample_loop_progressive`'e `top_p`, `clamp_step`, `clamp_first` artık iletiliyor. Önceden `ddim_sample_loop` bu parametreleri kabul edip `ddim_sample_loop_progressive`'e geçirmiyordu → DDIM modunda (inference default) rounding her adımda zorla uygulanıyordu, clamp_step/clamp_first hiç çalışmıyordu.
+2. `rounding.py` [M-1]: `denoised_fn_round` answer_vocab kısıtlamasını artık sadece cevap yarısına (`[:, seq_len:, :]`) uyguluyor. Önceden `(B, 2*seq_len, hidden)` tensörü düzleştirilip tüm konumlara answer_vocab projeksiyonu yapılıyordu; soru yarısı (conditioning) bozuluyordu.
+3. `eval_DiffuVQA.py` [M-2]: `calculate_f1` karakter-level `edit_distance` threshold'u yerine standart token-level F1 (TP/FP/FN token overlap) kullanıyor. "yes" in "paris yes" senaryosunda önceki kod FP sayıyordu.
+4. `diffuvqa/vqa_model.py` [M-3]: `feature_fusion`'da `question_emb` (pre-encoder, embedding layer çıktısı) yerine `question_feats` (post-encoder, transformer çıktısı) kullanılıyor. Hem CVAE branch'inde hem alpha/beta/theta fusion'ında düzeltildi.
+5. `gaussian_diffusion.py` [M-4]: `_WrappedModel.__call__` artık `**kwargs` iletiyor.
+6. `sample_vqa_GPU.py` [m-4]: `answer_vocab` artık test split yerine train split'ten oluşturuluyor; test set answer istatistikleri rounding adımına sızmıyor.
+**Why:** 350k checkpoint JSONL analizi şunu gösterdi: YN accuracy %3 (random'dan kötü), over-generation %38, suffix artifact %47. C-3 ve M-1 DDIM inference yolunu doğrudan kırıyordu; M-2 raporlanan F1'i yanıltıcı yapıyordu; M-3 feature fusion'ı semantic seviye uyumsuzluğuyla zayıflatıyordu.
+**How to apply:** 350k checkpoint'ini mevcut kodla yeniden sample etmek yeterli (C-1/C-2 zaten düzeltilmişti). YN accuracy'nin ~3%'ten 40–60%'e çıkması bekleniyor.
+
+---
+
 ## 2026-05-28 — Kod denetimi: 3 bug düzeltildi
 
 **What:**

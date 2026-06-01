@@ -2,6 +2,12 @@
 
 ## Completed
 
+- [x] [C-3] `ddim_sample_loop_progressive`'e `top_p`/`clamp_step`/`clamp_first` iletildi — DDIM modunda rounding artık clamp_step'e uyuyor
+- [x] [M-1] `denoised_fn_round` answer_vocab kısıtlaması sadece cevap yarısına uygulanıyor — soru conditioning artık bozulmuyor
+- [x] [M-2] `eval_DiffuVQA.py` `calculate_f1`: karakter-level edit_distance → standart token-level F1 (TP/FP/FN)
+- [x] [M-3] `vqa_model.py` `feature_fusion`: `question_emb` (pre-encoder) → `question_feats` (post-encoder); CVAE branch ve alpha/beta/theta fusion'ında düzeltildi
+- [x] [M-4] `_WrappedModel.__call__`: `**kwargs` artık iletiliyor
+- [x] [m-4] `sample_vqa_GPU.py` `answer_vocab`: test split → train split (test set leakage önlendi)
 - [x] sample_shape x_start.shape[1] kullanacak şekilde düzeltildi (seq_len yerine)
 - [x] vqa_model.py bert_config dead code silindi
 - [x] NLL loss padding token'ları hariç tutacak şekilde düzeltildi (answer_mask eklendi)
