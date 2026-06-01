@@ -184,6 +184,16 @@ def main():
                    tokenizer.tokenizer.pad_token_id}
     answer_vocab_set.update(special_ids)
     answer_vocab_set.discard(None)
+    # Filter out ## wordpiece continuation tokens — they produce merged artifacts
+    # like "colonoscopysc", "pinksc" when convert_tokens_to_string joins them.
+    # Keep only whole-word tokens and special tokens in the answer vocab.
+    answer_vocab_set = {
+        tid for tid in answer_vocab_set
+        if tid is not None and (
+            tid in special_ids or
+            not tokenizer.tokenizer.convert_ids_to_tokens([tid])[0].startswith('##')
+        )
+    }
     answer_vocab_ids = torch.tensor(sorted(answer_vocab_set),
                                     dtype=torch.long, device=th.device("cuda"))
     print(f"### Answer vocabulary size: {len(answer_vocab_ids)} / {tokenizer.vocab_size} tokens")

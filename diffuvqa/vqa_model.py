@@ -143,7 +143,9 @@ class feature_fusion(nn.Module):
             image_feats + self.modality_type_embeddings(torch.full_like(image_masks, 1)),
         )
 
-        pre_simu_answer_feats = self.cvae(question_emb + image_feats)
+        # Use question_feats (post-encoder) consistently instead of question_emb
+        # (pre-encoder raw embedding). Mixing the two adds incompatible scales.
+        pre_simu_answer_feats = self.cvae(question_feats + image_feats)
 
         f1 = self.cross_attention(pre_simu_answer_feats, question_feats, question_feats)
         f2 = self.cross_attention(f1, image_feats, image_feats)
@@ -151,7 +153,7 @@ class feature_fusion(nn.Module):
         f3 = self.layer_norm(f3)
         f4 = self.feature_proj(f3)
 
-        f = self.alpha * f4 + self.beta * image_feats + self.theta * (question_feats + question_emb)
+        f = self.alpha * f4 + self.beta * image_feats + self.theta * question_feats
         return f, pre_simu_answer_feats
     
     def init_weights(self, module):
