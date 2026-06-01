@@ -4,6 +4,18 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-01 — M-3 mimari fix: bert ve pubmedbert için 500k sonrası
+
+**What:** `vqa_model.py` `feature_fusion.forward()`:
+- `pre_simu_answer_feats = self.cvae(question_emb + image_feats)` → `self.cvae(question_feats + image_feats)`
+- `f = alpha*f4 + beta*image_feats + theta*(question_feats + question_emb)` → `theta*question_feats`
+
+**Why uygulanmadı:** bert (105k'da) ve pubmedbert aktif training'de. 105k'da öğrenilmiş alpha/beta/theta ağırlıkları `question_emb` dahil formüle göre kalibre — değiştirilirse geçici loss spike olur, momentum bozulur. Biobert 0'dan başlıyor, orada uygulandı.
+**Ne zaman:** bert ve pubmedbert 500k tamamlandığında, yeni run başlatılırken bu değişikliği uygula.
+**Dosya:** `diffuvqa/vqa_model.py` satır 146 ve 154.
+
+---
+
 ## 2026-06-01 — SEP anchor: sıfırdan training kararı
 
 **What:**
