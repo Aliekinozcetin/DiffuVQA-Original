@@ -43,16 +43,28 @@ def create_argparser():
 
 
 def calculate_f1(labels, preds, threshold=0.8):
-    tp, fp, fn = 0, 0, 0
+    # Standard token-level F1: count token overlap between reference and prediction.
+    # Previous implementation used character-level edit distance which is not
+    # standard and underestimates F1 for short answers with surrounding noise.
+    total_tp, total_fp, total_fn = 0, 0, 0
     for label, pred in zip(labels, preds):
-        similarity_score = 1 - edit_distance(label, pred) / max(len(label), len(pred))
-        if similarity_score >= threshold:
-            tp += 1
-        else:
-            fp += 1
-    fn = len(labels) - tp
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        ref_tokens = label.lower().split()
+        pred_tokens = pred.lower().split()
+        ref_counts = {}
+        for tok in ref_tokens:
+            ref_counts[tok] = ref_counts.get(tok, 0) + 1
+        tp = 0
+        for tok in pred_tokens:
+            if ref_counts.get(tok, 0) > 0:
+                tp += 1
+                ref_counts[tok] -= 1
+        fp = len(pred_tokens) - tp
+        fn = len(ref_tokens) - tp
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+    precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
+    recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
     f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
     return precision, recall, f1_score
 
@@ -241,7 +253,7 @@ if __name__ == '__main__':
 
         P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
         precision, recall, f1_score = calculate_f1(references, recovers)
-        CIDer =  cider_score(references, recovers)
+        CIDer =  cider_score(recovers, references)
 
         import json
 

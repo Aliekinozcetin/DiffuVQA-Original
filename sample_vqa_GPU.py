@@ -162,23 +162,46 @@ def main():
 
     model_emb.to(th.device("cuda"))
 
-    # Build answer vocabulary: collect all unique token ids that appear in
-    # answer positions across the dataset, then restrict KNN rounding to
-    # this subspace. Prevents spurious biomedical tokens from dominating L2.
+    # Build answer vocabulary from the TRAIN split JSONL directly — avoids a
+    # full load_data_vqa call (which tokenizes 47k samples with 8 workers).
     answer_vocab_set = set()
-    for cond in all_text_data:
-        ids = cond['input_a_id']  # (B, seq_len) or list of tensors
-        if isinstance(ids, torch.Tensor):
-            answer_vocab_set.update(ids.view(-1).tolist())
-        else:
-            for row in ids:
-                answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
+    train_jsonl = os.path.join(args.data_dir, 'train.jsonl')
+    if os.path.exists(train_jsonl):
+        with open(train_jsonl, 'r') as _f:
+            for _line in _f:
+                _ans = json.loads(_line).get('answer', '')
+                if _ans:
+                    _ids = tokenizer.tokenizer(
+                        _ans, add_special_tokens=True,
+                        padding='max_length', max_length=args.seq_len,
+                        truncation=True
+                    )['input_ids']
+                    answer_vocab_set.update(_ids)
+    else:
+        # fallback: use test data already loaded
+        for cond in all_text_data:
+            ids = cond['input_a_id']
+            if isinstance(ids, torch.Tensor):
+                answer_vocab_set.update(ids.view(-1).tolist())
+            else:
+                for row in ids:
+                    answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
     # always keep special tokens so [CLS]/[SEP]/[PAD] boundaries work
     special_ids = {tokenizer.tokenizer.cls_token_id,
                    tokenizer.tokenizer.sep_token_id,
                    tokenizer.tokenizer.pad_token_id}
     answer_vocab_set.update(special_ids)
     answer_vocab_set.discard(None)
+    # Filter out ## wordpiece continuation tokens — they produce merged artifacts
+    # like "colonoscopysc", "pinksc" when convert_tokens_to_string joins them.
+    # Keep only whole-word tokens and special tokens in the answer vocab.
+    answer_vocab_set = {
+        tid for tid in answer_vocab_set
+        if tid is not None and (
+            tid in special_ids or
+            not tokenizer.tokenizer.convert_ids_to_tokens([tid])[0].startswith('##')
+        )
+    }
     answer_vocab_ids = torch.tensor(sorted(answer_vocab_set),
                                     dtype=torch.long, device=th.device("cuda"))
     print(f"### Answer vocabulary size: {len(answer_vocab_ids)} / {tokenizer.vocab_size} tokens")
