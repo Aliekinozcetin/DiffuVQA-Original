@@ -237,18 +237,8 @@ def main():
         # input_ids_mask = cond.pop('input_mask')
         input_ids_mask_ori = input_ids_mask
 
-        # Anchor [SEP] positions in x_start: place SEP embedding so the
-        # diffusion process starts from — and is pulled toward — the correct
-        # boundary token, matching the training mask where SEP is mask=0.
-        sep_token_id = 102
-        sep_emb = model_emb.weight[sep_token_id]  # (hidden_dim,)
-        # input_ids_a: (B, seq_len); x_start second half is answer
-        a_start = x_start.shape[1] // 2
-        sep_positions = (input_ids_a == sep_token_id)  # (B, seq_len)
-        for b in range(x_start.shape[0]):
-            for pos in sep_positions[b].nonzero(as_tuple=True)[0]:
-                x_start[b, a_start + pos, :] = sep_emb
-
+        # SEP anchor removed: all answer positions (including [SEP]) start from noise.
+        # Model now learns to denoise [SEP] from scratch, consistent with training mask=1.
         input_ids_mask = th.broadcast_to(input_ids_mask.unsqueeze(dim=-1), x_start.shape).to(th.device("cuda"))
         model_kwargs = {}
 
