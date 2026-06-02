@@ -2,6 +2,11 @@
 
 ## Completed
 
+- [x] SEP anchor kaldırıldı (main'den sync) — `vqa_datasets.py` mask_a=[1]*len, `sample_vqa_GPU.py` injection kaldırıldı
+- [x] NLL 2x→1x, sep_weight parametresi (decoder_nll 1x, terms["nll"] 5x), loss formula güncellendi
+- [x] `learning_steps` 500k→750k, `gradient_clipping` 0.5→0.75 (`config.json`)
+- [x] `pre_answer_loss` gate cosine decay, `import math` eklendi (`train_util.py`)
+- [x] `logits_mode=2` reshape bug düzeltildi (`vqa_model.py`)
 - [x] sample_shape x_start.shape[1] kullanacak şekilde düzeltildi (seq_len yerine)
 - [x] vqa_model.py bert_config dead code silindi
 - [x] NLL loss padding token'ları hariç tutacak şekilde düzeltildi (answer_mask eklendi)

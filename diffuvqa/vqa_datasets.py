@@ -116,16 +116,9 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
 
             mask_zero = [0] * len(q_ids)  # question: anchored (not noised)
 
-            # Answer mask: 1=noised for content tokens, 0=anchored for [SEP].
-            # Anchoring [SEP] gives the model a fixed target to converge toward
-            # at the sequence boundary. Without this, the model never learns
-            # where the answer ends (observed: 0% [SEP] generation after 400k steps).
-            mask_a = []
-            for tok in a_ids:
-                if tok == SEP_ID:
-                    mask_a.append(0)  # anchor SEP — not noised
-                else:
-                    mask_a.append(1)  # noise content tokens and padding
+            # Answer mask: all answer tokens (including [SEP]) are noised (mask=1).
+            # The model must learn to denoise [SEP] from noise, matching inference.
+            mask_a = [1] * len(a_ids)
 
             lst.append(q_ids + a_ids)
             mask.append(mask_zero + mask_a)
