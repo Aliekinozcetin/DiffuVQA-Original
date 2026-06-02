@@ -4,6 +4,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-02 — `rounding.py` CUDA/CPU device mismatch düzeltildi
+
+**What:** `denoised_fn_round` içindeki üç `model(tokens)` çağrısına `.to(model.weight.device)` eklendi (satır 113, 129, 147).
+**Why:** `get_logits` path'inde `q_tokens`/`a_tokens`/`rounded_tokens`, `old_device` (CUDA) üzerinde oluşuyordu; embedding `model` ise CPU'daydı. `RuntimeError: Expected all tensors to be on the same device` ile sampling tamamen patlıyordu. `get_efficient_knn` path'i `.to(model_emb.device)` ile zaten doğruydu; `get_logits` path'i bu adımı atlıyordu.
+**How to apply:** Yalnızca `sample_vqa_GPU.py` (DDIM inference) etkili. Training kodu `denoised_fn_round`'u çağırmıyor — checkpoint yeniden eğitim gerektirmiyor.
+
+---
+
 ## 2026-06-01 — 350k sampling analizi: 5 bug düzeltildi
 
 **What:**
