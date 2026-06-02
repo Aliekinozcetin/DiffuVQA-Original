@@ -4,6 +4,29 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-02 — SEP anchor kaldırıldı: sıfırdan training
+
+**What:**
+1. `diffuvqa/vqa_datasets.py` `merge_and_mask`: `mask_a` içinde SEP (tok==102) için `mask=0` (anchored) → tüm answer token'ları `mask=1` (noised). Model artık SEP'i noise'dan denoise etmeyi öğreniyor.
+2. `sample_vqa_GPU.py`: SEP embedding injection bloğu kaldırıldı (x_start'taki SEP pozisyonuna `model_emb.weight[102]` yerleştirme). Tüm answer pozisyonları saf noise'dan başlıyor — training ile tutarlı.
+**Why:** D1 (en güçlü mimari bulgu): SEP anchor mekanizması training–inference tutarsızlığı yaratıyordu. Training'de SEP mask=0 ile clean x_start'tan görülüyor, hiç noise altında denoise öğrenilmiyor. Inference'ta SEP noise'dan üretilmek zorunda — model bu problemi hiç görmemişti → 0% SEP üretimi. Sıfırdan training ile bu tutarsızlık ortadan kalktı.
+**Not:** Bu değişiklikle birlikte mevcut checkpoint'ler geçersiz — SEP anchor varsayımına göre eğitilmişler. Sıfırdan eğitim gerekiyor.
+
+---
+
+## 2026-06-02 — Loss/grad/LR düzeltmeleri: 350k checkpoint'ten devam
+
+**What:**
+1. `gaussian_diffusion.py` NLL ağırlığı `2.0 * nll + 2.0 * decoder_nll` → `1.0 * nll + 1.0 * decoder_nll`. Grad norm clip'ten çıkarmak için.
+2. `gaussian_diffusion.py` `_token_discrete_loss` `sep_weight` parametresi eklendi. `decoder_nll` çağrısında `sep_weight=1.0` (x_start clean, trivial signal), `terms["nll"]` çağrısında `sep_weight=5.0` (model tahmininden gerçek gradient). Önceki 3x ağırlık her iki çağrıda da eşit uygulanıyordu — decoder_nll'deki SEP near-zero olduğundan 3x sıfırın 3 katıydı.
+3. `diffuvqa/config.json` `learning_steps` 500k → 750k. LR annealing'in 500k'da 0'a inmesi önleniyor; 350k'da LR ≈ 5.3e-6 yerine ≈ 7.0e-6 oluyor, kalan adımlarda gradient'ler daha anlamlı.
+4. `diffuvqa/config.json` `gradient_clipping` 0.5 → 0.75. NLL ağırlığı düşünce toplam loss magnitude azalıyor; 0.5 artık çok agresif.
+5. `train_util.py` `pre_answer_loss` gate lineer → cosine: `max(0, 1 - step/150k)` → `0.5*(1 + cos(π*min(step,150k)/150k))`. Sıfır eğim her iki uçta; lineer formülde ~130k'daki abrupt cliff yok.
+6. `diffuvqa/vqa_model.py` `get_logits` `logits_mode=2` reshape bug düzeltildi: `view(vocab, bsz, seqlen)` yanlış shape'e yol açıyordu → `(bsz, seqlen, vocab)` şeklinde doğru yeniden şekillendirildi. `logits_mode=1` (aktif) etkilenmedi.
+**Why:** Kod inceleme analizi: NLL terimleri toplam loss'un ~%90'ını oluşturuyor, grad norm sürekli 0.5 clip'te → SEP pathway ve vision coupling güncellenemiyor. 350k'dan devam eden mevcut training'e uygulanabilir, sıfırdan başlamayı gerektirmiyor.
+
+---
+
 ## 2026-06-01 — M-3 mimari fix: bert ve pubmedbert için 500k sonrası
 
 **What:** `vqa_model.py` `feature_fusion.forward()`:

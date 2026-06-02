@@ -76,6 +76,15 @@
 - [x] `input_a_id` `.pop()` ile model_kwargs'dan temizlendi
 - [x] `pre_answer_loss` 150k sonra gate edildi — late-training embedding drift'inde gradient spike önlenir
 
+- [x] SEP anchor kaldırıldı — `vqa_datasets.py` mask_a tamamen 1 (SEP de noised); `sample_vqa_GPU.py` SEP embedding injection kaldırıldı. Training–inference tutarsızlığı giderildi.
+- [x] Notebook `LEARNING_STEPS` 500000 → 750000 güncellendi
+- [x] NLL ağırlığı 2x → 1x — grad norm clip'ten çıkarmak için (`gaussian_diffusion.py` satır 741)
+- [x] SEP loss `sep_weight` parametresi eklendi — `decoder_nll` çağrısında 1x (trivial), `terms["nll"]` çağrısında 5x (gerçek gradient)
+- [x] `learning_steps` 500k → 750k — LR 0'a inmiyor, kalan adımlarda anlamlı gradient (`config.json`)
+- [x] `gradient_clipping` 0.5 → 0.75 — NLL azalınca loss magnitude düşüyor, 0.5 çok agresif (`config.json`)
+- [x] `pre_answer_loss` gate lineer → cosine decay — 130k'daki abrupt cliff kaldırıldı (`train_util.py`)
+- [x] `logits_mode=2` reshape bug düzeltildi — `view(vocab,bsz,seqlen)` → `(bsz,seqlen,vocab)` (`vqa_model.py`)
+
 ## Open (nice-to-have, not blocking)
 
 - [ ] Eğitimi A100 Colab'da uçtan uca test et, `progress.csv` yazıldığını doğrula

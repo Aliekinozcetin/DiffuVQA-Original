@@ -553,10 +553,11 @@ class GaussianDiffusion:
                 x_start_mean + std * noise
         )
 
-    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None):
+    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None, sep_weight=1.0):
         '''
         the loss of -log p(w|z_0)
         :param x_start_mean: word embedding
+        :param sep_weight: multiplier for [SEP] token loss (use 5.0 for model-prediction path, 1.0 for x_start path)
         :return: x_0
         '''
         reshaped_x_t = x_t
@@ -564,23 +565,17 @@ class GaussianDiffusion:
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
 
-        # Separate [SEP] loss from content token loss so it is never averaged
-        # away. [SEP] anchored in mask so it receives its own gradient signal
-        # independently of sequence length normalization.
         sep_mask = (input_ids == 102).float()          # 1 at [SEP] positions
         content_mask = (mask - sep_mask).clamp(min=0) if mask is not None else None
 
-        # SEP loss: mean over batch (not normalized by sequence length)
         sep_loss = (decoder_nll * sep_mask).sum(dim=-1) / sep_mask.sum(dim=-1).clamp(min=1)
 
-        # Content loss: normalized by non-SEP answer token count
         if content_mask is not None:
             content_nll = (decoder_nll * content_mask).sum(dim=-1) / content_mask.sum(dim=-1).clamp(min=1)
         else:
             content_nll = decoder_nll.mean(dim=-1)
 
-        # Combine: SEP weighted 3x relative to content tokens
-        return content_nll + 3.0 * sep_loss
+        return content_nll + sep_weight * sep_loss
 
     def _x0_helper(self, model_output, x, t):
 
@@ -721,10 +716,12 @@ class GaussianDiffusion:
         tT_loss = mean_flat(out_mean ** 2)
 
         answer_mask = (input_ids_a != 0).float()  # (B, seq_len) -- ignore padding tokens
-        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask)
+        # x_start is anchored clean — SEP signal here is trivial, no special weight needed
+        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask)
+        # model prediction path: 5x SEP weight gives real gradient toward SEP production
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=5.0)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
         target_answer = x_start_mean.detach()
@@ -737,8 +734,7 @@ class GaussianDiffusion:
             reg_loss_type=reg_loss_type,
         )
 
-        # NLL 2x ağırlık: lm_head çıktısını L2 rounding ile hizalamak için
-        terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + 2.0 * terms["nll"] + 2.0 * decoder_nll + terms["reg"]
+        terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + terms["nll"] + decoder_nll + terms["reg"]
 
         return terms
 
