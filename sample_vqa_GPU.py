@@ -21,6 +21,7 @@ from diffuvqa.vqa_datasets import load_data_vqa
 # from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 import time
+from collections import Counter
 from diffuvqa.utils import dist_util, logger
 from functools import partial
 from basic_utils import (
@@ -55,7 +56,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
 
 
 def create_argparser():
-    defaults = dict(model_path='', step=2500, out_dir='', top_p=0)
+    defaults = dict(model_path='', step=2500, out_dir='', top_p=0, n_samples=1)
     decode_defaults = dict(split='test', clamp_step=200, seed2=105, clip_denoised=False)
     defaults.update(load_defaults_config())
     defaults.update(decode_defaults)
@@ -239,12 +240,6 @@ def main():
         # SEP anchor removed: all answer positions (including [SEP]) start from noise.
         # Model now learns to denoise [SEP] from scratch, consistent with training mask=1.
         input_ids_mask = th.broadcast_to(input_ids_mask.unsqueeze(dim=-1), x_start.shape).to(th.device("cuda"))
-        noise = th.randn_like(x_start)
-        if getattr(args, "use_noising_f", False):
-            print("noising f")
-            noise = alphas_bar_sqrt[num_steps - 1] * f + one_minus_alphas_bar_sqrt[num_steps - 1] * noise
-
-        x_noised = th.where(input_ids_mask == 0, x_start, noise)  
 
         model_kwargs = {}
 
@@ -261,46 +256,61 @@ def main():
 
         sample_shape = (x_start.shape[0], x_start.shape[1], args.hidden_dim)
 
-        samples = sample_fn(
-            model,
-            sample_shape,
-            noise=x_noised,
-            clip_denoised=args.clip_denoised,
-            denoised_fn=partial(denoised_fn_round, args, model_emb,
-                                answer_vocab_ids=answer_vocab_ids,
-                                get_logits=model.get_logits),
-            model_kwargs=model_kwargs,
-            top_p=args.top_p,
-            clamp_step=args.clamp_step,
-            clamp_first=True,
-            mask=input_ids_mask,
-            x_start=x_start,
-            gap=step_gap
-        )
-
-        sample = samples[-1]
-        a_shape = sample.size(1) // 2
-        sample = sample[:, a_shape:, :]
-        logits = model.get_logits(sample)  # bsz, seqlen, vocab
-
-        # Decode: lm_head logits masked to answer vocab, then argmax.
-        # Keeps training-consistent selection (lm_head) while restricting
-        # to the answer subspace so biomedical noise tokens are excluded.
-        # -inf mask pushes non-answer tokens out of softmax competition.
-        masked_logits = logits.clone()
-        answer_mask_bool = th.zeros(logits.size(-1), dtype=th.bool, device=logits.device)
+        # answer_mask_bool is the same for every vote; build it once per batch
+        answer_mask_bool = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
         answer_mask_bool[answer_vocab_ids] = True
-        masked_logits[:, :, ~answer_mask_bool] = float('-inf')
-        decode_ids = masked_logits.argmax(dim=-1)  # bsz, seqlen
 
-        cands = th.topk(logits, k=1, dim=-1)  # kept for rounding_agreement metric
+        n_votes = args.n_samples
+        batch_sz = x_start.shape[0]
+        all_vote_candidates = [[] for _ in range(batch_sz)]
+        logits = None
+        masked_logits = None
+        decode_ids = None
 
-        # confidence: mean top-1 softmax prob over answer vocab restricted logits
+        for _vote_idx in range(n_votes):
+            noise = th.randn_like(x_start)
+            if getattr(args, "use_noising_f", False):
+                noise = alphas_bar_sqrt[num_steps - 1] * f + one_minus_alphas_bar_sqrt[num_steps - 1] * noise
+            x_noised = th.where(input_ids_mask == 0, x_start, noise)
+
+            samples = sample_fn(
+                model,
+                sample_shape,
+                noise=x_noised,
+                clip_denoised=args.clip_denoised,
+                denoised_fn=partial(denoised_fn_round, args, model_emb,
+                                    answer_vocab_ids=answer_vocab_ids,
+                                    get_logits=model.get_logits),
+                model_kwargs=model_kwargs,
+                top_p=args.top_p,
+                clamp_step=args.clamp_step,
+                clamp_first=True,
+                mask=input_ids_mask,
+                x_start=x_start,
+                gap=step_gap
+            )
+
+            sample = samples[-1]
+            a_shape = sample.size(1) // 2
+            sample = sample[:, a_shape:, :]
+            logits = model.get_logits(sample)  # bsz, seqlen, vocab
+
+            # Decode: lm_head logits masked to answer vocab, then argmax.
+            # -inf mask pushes non-answer tokens out of softmax competition.
+            masked_logits = logits.clone()
+            masked_logits[:, :, ~answer_mask_bool] = float('-inf')
+            decode_ids = masked_logits.argmax(dim=-1)  # bsz, seqlen
+
+            for i, seq in enumerate(decode_ids):
+                tokens = tokenizer.decode_token(seq.to(th.device("cpu")))
+                all_vote_candidates[i].append(tokens)
+
+        # Majority vote: most-frequent decoded string wins per sequence in batch.
+        # Confidence and rounding_agreement are taken from the last sample run.
+        cands = th.topk(logits, k=1, dim=-1)
         confidence_per_seq = th.softmax(masked_logits, dim=-1).max(dim=-1).values.mean(dim=-1)
-
-        # rounding_agreement: fraction where lm_head argmax == answer-masked argmax
-        logit_argmax = cands.indices.squeeze(-1)  # bsz, seqlen (full vocab)
-        agreement_per_seq = (decode_ids == logit_argmax).float().mean(dim=-1)  # bsz
+        logit_argmax = cands.indices.squeeze(-1)
+        agreement_per_seq = (decode_ids == logit_argmax).float().mean(dim=-1)
 
         word_lst_recover = []
         word_lst_ref = []
@@ -308,11 +318,9 @@ def main():
         confidence_lst = []
         rounding_agreement_lst = []
 
-        for seq, input_mask, conf, agr in zip(decode_ids, input_ids_mask_ori,
-                                               confidence_per_seq, agreement_per_seq):
-            seq = seq.to(th.device("cpu"))
-            tokens = tokenizer.decode_token(seq)
-            word_lst_recover.append(tokens)
+        for candidates, conf, agr in zip(all_vote_candidates, confidence_per_seq, agreement_per_seq):
+            winner = Counter(candidates).most_common(1)[0][0]
+            word_lst_recover.append(winner)
             confidence_lst.append(round(conf.item(), 6))
             rounding_agreement_lst.append(round(agr.item(), 6))
 
