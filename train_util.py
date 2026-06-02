@@ -1,5 +1,6 @@
 import copy
 import functools
+import math
 import os
 
 import blobfile as bf
@@ -265,10 +266,10 @@ class TrainLoop:
     def forward_backward(self, image, cond):
         zero_grad(self.model_params)
         cond.pop('image_name', None)  # remove once before microbatch loop
-        # Gate pre_answer_loss: full weight up to step 150k, zero after.
-        # Prevents late-training CVAE gradient spikes if embedding space drifts.
+        # Cosine decay gate for pre_answer_loss: smooth 1→0 over first 150k steps.
+        # Zero slope at both endpoints avoids gradient cliffs near step 130k.
         global_step = self.step + self.resume_step
-        pre_answer_weight = max(0.0, 1.0 - global_step / 150000)
+        pre_answer_weight = 0.5 * (1 + math.cos(math.pi * min(global_step, 150000) / 150000))
         for i in range(0, image.shape[0], self.microbatch):
             micro_image = image[i: i + self.microbatch].to(dist_util.dev())
             micro_cond = {

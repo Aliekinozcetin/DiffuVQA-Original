@@ -4,6 +4,20 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-02 — SEP anchor kaldırıldı + loss/grad/LR düzeltmeleri (main'den sync)
+
+**What:**
+1. `vqa_datasets.py` `merge_and_mask`: SEP anchor kaldırıldı, `mask_a = [1] * len(a_ids)` — tüm answer token'ları noised.
+2. `sample_vqa_GPU.py`: SEP embedding injection bloğu kaldırıldı.
+3. `gaussian_diffusion.py` `_token_discrete_loss`: `sep_weight` parametresi eklendi; `decoder_nll` 1x, `terms["nll"]` 5x.
+4. `gaussian_diffusion.py` loss: `2.0 * nll + 2.0 * decoder_nll` → `1.0 * nll + 1.0 * decoder_nll`.
+5. `config.json`: `learning_steps` 500k→750k, `gradient_clipping` 0.5→0.75.
+6. `train_util.py`: `pre_answer_loss` gate lineer → cosine; `import math` eklendi.
+7. `vqa_model.py` `logits_mode=2` reshape bug düzeltildi.
+**Why:** main branch ile senkronize edildi. Biobert-spesifik değerler (`vocab_size=28996`, `config_name`, `language_encoder_name`, `eval_interval=500`) korundu.
+
+---
+
 ## 2026-06-02 — `rounding.py` CUDA/CPU device mismatch düzeltildi
 
 **What:** `denoised_fn_round` içindeki üç `model(tokens)` çağrısına `.to(model.weight.device)` eklendi (satır 113, 129, 147).

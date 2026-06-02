@@ -2,6 +2,11 @@
 
 ## Completed
 
+- [x] SEP anchor kaldırıldı (main'den sync) — `vqa_datasets.py` mask_a=[1]*len, `sample_vqa_GPU.py` injection kaldırıldı
+- [x] NLL 2x→1x, sep_weight parametresi (decoder_nll 1x, terms["nll"] 5x), loss formula güncellendi
+- [x] `learning_steps` 500k→750k, `gradient_clipping` 0.5→0.75 (`config.json`)
+- [x] `pre_answer_loss` gate cosine decay, `import math` eklendi (`train_util.py`)
+- [x] `logits_mode=2` reshape bug düzeltildi (`vqa_model.py`)
 - [x] [C-3] `ddim_sample_loop_progressive`'e `top_p`/`clamp_step`/`clamp_first` iletildi — DDIM modunda rounding artık clamp_step'e uyuyor
 - [x] [M-1] `denoised_fn_round` answer_vocab kısıtlaması sadece cevap yarısına uygulanıyor — soru conditioning artık bozulmuyor
 - [x] [M-2] `eval_DiffuVQA.py` `calculate_f1`: karakter-level edit_distance → standart token-level F1 (TP/FP/FN)
