@@ -256,8 +256,8 @@ def main():
 
         sample_shape = (x_start.shape[0], x_start.shape[1], args.hidden_dim)
 
-        # answer_mask_bool is the same for every vote; build it once per batch
-        answer_mask_bool = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
+        # answer_mask_bool sized by args.vocab_size (== model lm_head output dim)
+        answer_mask_bool = th.zeros(args.vocab_size, dtype=th.bool, device=th.device("cuda"))
         answer_mask_bool[answer_vocab_ids] = True
 
         n_votes = args.n_samples

@@ -189,6 +189,19 @@ class TrainLoop:
         else:
             logger.log(f"no optimizer state found at {opt_path}, starting fresh")
 
+        if isinstance(self.schedule_sampler, LossAwareSampler):
+            sampler_filename = f"sampler_{self.resume_step:06d}.pt"
+            sampler_path = bf.join(self.checkpoint_path, sampler_filename)
+            s_exists = bf.exists(sampler_path) or os.path.exists(sampler_path)
+            if s_exists:
+                logger.log(f"loading sampler state from: {sampler_path}")
+                try:
+                    s = dist_util.load_state_dict(sampler_path, map_location="cpu")
+                    self.schedule_sampler._loss_history = s["loss_history"]
+                    self.schedule_sampler._loss_counts = s["loss_counts"]
+                except Exception as e:
+                    logger.log(f"sampler state unreadable ({e}), starting fresh")
+
     def _setup_fp16(self):
         self.master_params = make_master_params(self.model_params)
         self.model.convert_to_fp16()
@@ -414,6 +427,15 @@ class TrainLoop:
         logger.log(f"saving optimizer state to {opt_path}...")
         with bf.BlobFile(opt_path, "wb") as f:
             th.save(self.opt.state_dict(), f)
+
+        if isinstance(self.schedule_sampler, LossAwareSampler):
+            sampler_filename = f"sampler_{(self.step + self.resume_step):06d}.pt"
+            sampler_path = bf.join(self.checkpoint_path, sampler_filename)
+            with bf.BlobFile(sampler_path, "wb") as f:
+                th.save({
+                    "loss_history": self.schedule_sampler._loss_history,
+                    "loss_counts": self.schedule_sampler._loss_counts,
+                }, f)
 
     def _master_params_to_state_dict(self, master_params):
         if self.use_fp16:
