@@ -142,18 +142,16 @@ class TrainLoop:
 
     def _load_and_sync_parameters(self):
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
-        _is_real = main_checkpoint and str(main_checkpoint).lower() not in ('', 'none', 'false')
-        if _is_real:
-            # bf.exists() can silently fail on Colab Drive FUSE paths; fall back to os.path.exists
-            _found = bf.exists(main_checkpoint) or os.path.exists(main_checkpoint)
-            if not _found:
+        if main_checkpoint:
+            # bf.exists() can return False on Drive FUSE mounts — fall back to os.path.exists
+            exists = bf.exists(main_checkpoint) or os.path.exists(main_checkpoint)
+            if not exists:
                 raise FileNotFoundError(
-                    f"resume_checkpoint specified but file not found: {main_checkpoint}\n"
-                    "Check the path on Drive or clear RESUME_CHECKPOINT to train from scratch."
+                    f"Resume checkpoint not found: {main_checkpoint}\n"
+                    f"Check that the file exists at this path before starting training."
                 )
             self.resume_step = parse_resume_step_from_filename(main_checkpoint)
-            logger.log(f"loading model from checkpoint: {main_checkpoint} (resume_step={self.resume_step})")
-            print(f"### Resuming from step {self.resume_step}: {main_checkpoint}")
+            logger.log(f"### Resuming from step {self.resume_step} ({main_checkpoint})")
             state_dict = dist_util.load_state_dict(main_checkpoint, map_location=dist_util.dev())
             self.model.load_state_dict(state_dict, strict=False)
 
@@ -178,10 +176,14 @@ class TrainLoop:
     def _load_optimizer_state(self):
         opt_filename = f"opt_{self.resume_step:06d}.pt"
         opt_path = bf.join(self.checkpoint_path, opt_filename)
-        if bf.exists(opt_path):
+        exists = bf.exists(opt_path) or os.path.exists(opt_path)
+        if exists:
             logger.log(f"loading optimizer state from: {opt_path}")
-            state_dict = dist_util.load_state_dict(opt_path, map_location=dist_util.dev())
-            self.opt.load_state_dict(state_dict)
+            try:
+                state_dict = dist_util.load_state_dict(opt_path, map_location=dist_util.dev())
+                self.opt.load_state_dict(state_dict)
+            except Exception as e:
+                logger.log(f"optimizer state corrupt or unreadable ({e}), starting fresh")
         else:
             logger.log(f"no optimizer state found at {opt_path}, starting fresh")
 
