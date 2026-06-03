@@ -142,9 +142,18 @@ class TrainLoop:
 
     def _load_and_sync_parameters(self):
         main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
-        if main_checkpoint and bf.exists(main_checkpoint):
+        _is_real = main_checkpoint and str(main_checkpoint).lower() not in ('', 'none', 'false')
+        if _is_real:
+            # bf.exists() can silently fail on Colab Drive FUSE paths; fall back to os.path.exists
+            _found = bf.exists(main_checkpoint) or os.path.exists(main_checkpoint)
+            if not _found:
+                raise FileNotFoundError(
+                    f"resume_checkpoint specified but file not found: {main_checkpoint}\n"
+                    "Check the path on Drive or clear RESUME_CHECKPOINT to train from scratch."
+                )
             self.resume_step = parse_resume_step_from_filename(main_checkpoint)
             logger.log(f"loading model from checkpoint: {main_checkpoint} (resume_step={self.resume_step})")
+            print(f"### Resuming from step {self.resume_step}: {main_checkpoint}")
             state_dict = dist_util.load_state_dict(main_checkpoint, map_location=dist_util.dev())
             self.model.load_state_dict(state_dict, strict=False)
 
