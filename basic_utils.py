@@ -20,7 +20,7 @@ class myTokenizer():
         if args.vocab == 'bert':
             # hf-mirror doesn't serve BERT weights; bypass HF_ENDPOINT for this call
             _hf_endpoint = os.environ.pop("HF_ENDPOINT", None)
-            tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+            tokenizer = AutoTokenizer.from_pretrained("dmis-lab/biobert-base-cased-v1.2")
             if _hf_endpoint:
                 os.environ["HF_ENDPOINT"] = _hf_endpoint
             self.tokenizer = tokenizer
@@ -92,8 +92,17 @@ def load_model_emb(args, tokenizer):
     path_save_ind = path_save + ".done"
 
     if os.path.exists(path_save):
-        print('reload the random embeddings', model)
-        model.load_state_dict(torch.load(path_save))
+        saved = torch.load(path_save, map_location='cpu')
+        saved_vocab = saved['weight'].shape[0]
+        if saved_vocab != tokenizer.vocab_size:
+            print(f'WARNING: random_emb.torch vocab size mismatch '
+                  f'(saved={saved_vocab}, tokenizer={tokenizer.vocab_size}). '
+                  f'Re-initializing embeddings.')
+            torch.nn.init.normal_(model.weight)
+            torch.save(model.state_dict(), path_save)
+        else:
+            print('reload the random embeddings', model)
+            model.load_state_dict(saved)
     else:
         print('initializing the random embeddings', model)
         torch.nn.init.normal_(model.weight)
@@ -143,8 +152,8 @@ def create_model_and_diffusion(args):
         output_dims=768,
         hidden_t_dim=128,
         dropout=0.1,
-        config_name="bert-base-uncased",
-        vocab_size=30522,
+        config_name="dmis-lab/biobert-base-cased-v1.2",
+        vocab_size=28996,
         init_pretrained="bert",
         args=args
     )
