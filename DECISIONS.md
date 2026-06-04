@@ -74,9 +74,9 @@ Decisions are listed newest-first.
 - `pre_simu_answer_feats = self.cvae(question_emb + image_feats)` → `self.cvae(question_feats + image_feats)`
 - `f = alpha*f4 + beta*image_feats + theta*(question_feats + question_emb)` → `theta*question_feats`
 
-**Why uygulanmadı:** bert 500k tamamlandı ama CIGN f vektörü hatası nedeniyle sıfırdan training başlatılıyor. Bu değişiklik yeni sıfırdan run başlatılırken uygulanacak.
-**Durum:** ⏳ Bekliyor — yeni run başlatılırken uygula.
-**Dosya:** `diffuvqa/vqa_model.py` satır 146 ve 154.
+**Why uygulanmadı:** Gerekmiyor — main branch'te zaten uygulanmış (`5dfd4be`, 2026-06-02). Satır 148 `question_feats`, satır 156 `theta * question_feats`. DECISIONS'daki "bekliyor" notu hataydı.
+**Durum:** ✅ Tamamlandı.
+**Dosya:** `diffuvqa/vqa_model.py` satır 148 ve 156.
 
 ---
 
