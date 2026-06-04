@@ -251,7 +251,7 @@ if __name__ == '__main__':
             continue
         accuracy = acc / cnt
 
-        P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True, max_length=512)
         precision, recall, f1_score = calculate_f1(references, recovers)
         CIDer =  cider_score(recovers, references)
 
@@ -326,7 +326,7 @@ if __name__ == '__main__':
 
             # print(len(recovers), len(references), len(recovers))
 
-            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True, max_length=512)
 
             print('*' * 30)
             print('avg BLEU score', np.mean(bleu))
