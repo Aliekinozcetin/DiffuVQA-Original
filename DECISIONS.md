@@ -4,6 +4,34 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-04 — config: batch_size 20→4, eval_interval 1000→5000
+
+**What:** `diffuvqa/config.json`: `batch_size` 20→4, `eval_interval` 1000→5000.
+**Why:** `batch_size=20` notebook'ta `--batch_size 4` ile override ediliyordu ama config.json'da 20 kalıyordu — tutarsızlık ve eval dataloader da 20 kullanıyordu. `eval_interval=1000` her 1000 adımda tam CLIP+BERT forward pass yapıyordu, gereksiz yavaşlama.
+
+---
+
+## 2026-06-04 — 4 bug fix: image path cache, SEP_ID, sampler state, vocab mask
+
+**What:**
+1. `vqa_datasets.py` `ImageDataset`: `load_image_path()` artık `__init__`'de bir kez çağrılıyor, `_image_paths` önbelleği oluşturuluyor. Her `__getitem__`'da O(N) path listesi yeniden oluşturuluyordu.
+2. `vqa_datasets.py` `merge_and_mask`: `SEP_ID = 102` hardcoded → `vocab_dict.tokenizer.sep_token_id` — biobert/pubmedbert gibi farklı tokenizer'larda SEP ID değişebilir.
+3. `train_util.py`: `LossAwareSampler` state (`_loss_history`, `_loss_counts`) artık `sampler_XXXXXX.pt` olarak checkpoint'e kaydediliyor ve resume'da geri yükleniyor. Her resume'da sampler ~25k adım warm-up kaybı önlendi.
+4. `sample_vqa_GPU.py`: `answer_mask_bool` `tokenizer.vocab_size` → `args.vocab_size` — model lm_head çıktı boyutuyla tutarlı.
+**Why:** Code review bulguları. Tüm değişiklikler training restart gerektirmiyor.
+
+---
+
+## 2026-06-03 — train_util: bf.exists fallback, corrupt opt guard, _is_real guard
+
+**What:**
+1. `_load_and_sync_parameters`: `bf.exists()` → `bf.exists() or os.path.exists()` fallback. Colab Drive FUSE'da `bf.exists()` bazen `False` döner → model sıfırdan başlıyordu, sessizce. Checkpoint varsa-yoksa `FileNotFoundError` fırlatıyor. `### Resuming from step X` logu eklendi.
+2. `_load_optimizer_state`: Aynı `bf.exists` fallback + `try/except` guard — kesinti sırasında yarım yazılmış `opt_*.pt` dosyası artık training'i çöktürmüyor, "starting fresh" logu yazılıyor.
+3. `_is_real` guard: `resume_checkpoint` değeri `"none"`, `"false"` veya boş string ise checkpoint yok sayılıyor — Biobert branch'teki fix ile senkronize edildi.
+**Why:** Biobert'te training 0'dan başladığı halde tqdm 0'dan gösteriyordu, loss 6.9'dan başlıyordu. `bf.exists()` Drive FUSE path'lerinde güvenilmez. Artık `FileNotFoundError` ile anında hata veriliyor.
+
+---
+
 ## 2026-06-05 — 500k analizi sonrası kritik fix'ler: sıfırdan training
 
 **What:**
@@ -40,14 +68,14 @@ Decisions are listed newest-first.
 
 ---
 
-## 2026-06-01 — M-3 mimari fix: bert ve pubmedbert için 500k sonrası
+## 2026-06-01 — M-3 mimari fix: sıfırdan training başlatılırken uygulanacak
 
 **What:** `vqa_model.py` `feature_fusion.forward()`:
 - `pre_simu_answer_feats = self.cvae(question_emb + image_feats)` → `self.cvae(question_feats + image_feats)`
 - `f = alpha*f4 + beta*image_feats + theta*(question_feats + question_emb)` → `theta*question_feats`
 
-**Why uygulanmadı:** bert (105k'da) ve pubmedbert aktif training'de. 105k'da öğrenilmiş alpha/beta/theta ağırlıkları `question_emb` dahil formüle göre kalibre — değiştirilirse geçici loss spike olur, momentum bozulur. Biobert 0'dan başlıyor, orada uygulandı.
-**Ne zaman:** bert ve pubmedbert 500k tamamlandığında, yeni run başlatılırken bu değişikliği uygula.
+**Why uygulanmadı:** bert 500k tamamlandı ama CIGN f vektörü hatası nedeniyle sıfırdan training başlatılıyor. Bu değişiklik yeni sıfırdan run başlatılırken uygulanacak.
+**Durum:** ⏳ Bekliyor — yeni run başlatılırken uygula.
 **Dosya:** `diffuvqa/vqa_model.py` satır 146 ve 154.
 
 ---
