@@ -2,6 +2,14 @@
 
 ## Completed
 
+- [x] CIGN f vektörü düzeltildi: `[image, image]` → `[image, ans_emb_pre]` — soru bilgisi ileri difüzyona giriyor (`gaussian_diffusion.py`)
+- [x] `clamp_first=True` → `False`; `clamp_step` default 200→50 — rounding artık sadece son 50 adımda aktif (`sample_vqa_GPU.py`)
+- [x] `##` wordpiece filtresi kaldırıldı — colonoscopy gibi çok-subword kelimeler üretilebilir (`sample_vqa_GPU.py`)
+- [x] masked_logits `-inf` fallback — boş cevap oranını azaltmak için (`sample_vqa_GPU.py`)
+- [x] `yes_no_accuracy` evaluation fix — Kvasir answer_type inference (`evaluate_and_export_csv`, 3 branch)
+- [x] N_SAMPLES=5 majority voting aktif — notebook inference config
+- [x] `training_steps` kolonu evaluation CSV'ye eklendi
+- [x] viz-cell `iloc[0]` → `iloc[-1]` — her zaman en son checkpoint gösteriliyor
 - [x] sample_shape x_start.shape[1] kullanacak şekilde düzeltildi (seq_len yerine)
 - [x] vqa_model.py bert_config dead code silindi
 - [x] NLL loss padding token'ları hariç tutacak şekilde düzeltildi (answer_mask eklendi)
