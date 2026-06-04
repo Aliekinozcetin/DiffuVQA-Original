@@ -1,11 +1,11 @@
 {
   "lr": 0.00001,
-  "batch_size": 20,
+  "batch_size": 4,
   "learning_steps": 750000,
   "microbatch":64,
   "log_interval": 1000,
   "save_interval": 25000,
-  "eval_interval": 500,
+  "eval_interval": 5000,
   "valid": true,
   "ema_rate": "0.9999",
   "resume_checkpoint": "none",

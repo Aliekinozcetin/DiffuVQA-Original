@@ -109,7 +109,7 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
     def merge_and_mask(group_lst):
         lst = []
         mask = []
-        SEP_ID = 102  # bert-base-uncased [SEP] token id
+        SEP_ID = vocab_dict.tokenizer.sep_token_id  # derived from active tokenizer, not hardcoded
         for i in range(len(group_lst['input_id_q'])):
             q_ids = group_lst['input_id_q'][i]
             a_ids = group_lst['input_id_a'][i]
@@ -226,11 +226,12 @@ class TextDataset(Dataset):
 class ImageDataset(Dataset):
     def __init__(self, image_root, data_lst, args, transform=None):
         super().__init__()  
-        self.image_root = image_root  
+        self.image_root = image_root
         self.data_lst = data_lst
-        self.args = args  
+        self.args = args
         self.transform = transform
-    
+        self._image_paths = self.load_image_path()
+
     def __len__(self):
         return len(self.data_lst['image_name'])
 
@@ -241,7 +242,7 @@ class ImageDataset(Dataset):
         return image_path
 
     def __getitem__(self, idx):
-        image_path = self.load_image_path()[idx]
+        image_path = self._image_paths[idx]
         image = Image.open(image_path).convert('RGB')
         image = self.transform(image)
         return image
