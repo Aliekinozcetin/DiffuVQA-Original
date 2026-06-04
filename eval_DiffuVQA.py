@@ -251,7 +251,9 @@ if __name__ == '__main__':
             continue
         accuracy = acc / cnt
 
-        P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True, max_length=512)
+        _rec = [' '.join(r.split()[:128]) for r in recovers]
+        _ref = [' '.join(r.split()[:128]) for r in references]
+        P, R, F1 = score(_rec, _ref, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
         precision, recall, f1_score = calculate_f1(references, recovers)
         CIDer =  cider_score(recovers, references)
 
@@ -326,7 +328,9 @@ if __name__ == '__main__':
 
             # print(len(recovers), len(references), len(recovers))
 
-            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True, max_length=512)
+            _rec = [' '.join(r.split()[:128]) for r in recovers]
+            _ref = [' '.join(r.split()[:128]) for r in references]
+            P, R, F1 = score(_rec, _ref, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
 
             print('*' * 30)
             print('avg BLEU score', np.mean(bleu))
