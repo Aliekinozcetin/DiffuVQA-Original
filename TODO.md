@@ -3,9 +3,10 @@
 ## Completed
 
 - [x] CIGN f vektörü düzeltildi: `[image, image]` → `[image, ans_emb_pre]` — soru bilgisi ileri difüzyona giriyor (`gaussian_diffusion.py`)
-- [x] `clamp_first=True` → `False`; `clamp_step` default 200→50 — rounding artık sadece son 50 adımda aktif (`sample_vqa_GPU.py`)
+- [x] `clamp_first=False` + `clamp_step=50` — sıfırdan training için ayarlandı (`sample_vqa_GPU.py`); mevcut checkpoint için `clamp_step=0, clamp_first=True` geri alındı
 - [x] `##` wordpiece filtresi kaldırıldı — colonoscopy gibi çok-subword kelimeler üretilebilir (`sample_vqa_GPU.py`)
 - [x] masked_logits `-inf` fallback — boş cevap oranını azaltmak için (`sample_vqa_GPU.py`)
+- [x] BERT 500k sonuçları rapor tablolarına eklendi (EM %2.55, Yes/No %4.48, BLEU-1 %6.31, F1 %8.67)
 - [x] `yes_no_accuracy` evaluation fix — Kvasir answer_type inference (`evaluate_and_export_csv`, 3 branch)
 - [x] N_SAMPLES=5 majority voting aktif — notebook inference config
 - [x] `training_steps` kolonu evaluation CSV'ye eklendi

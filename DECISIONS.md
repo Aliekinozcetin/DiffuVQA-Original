@@ -4,16 +4,24 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-05 — clamp geri alındı: mevcut checkpoint ile uyumsuz
+
+**What:** `sample_vqa_GPU.py`: `clamp_step` 50→0, `clamp_first` False→True. Notebook sample-cell'de `--clamp_step 0`.
+**Why:** N_SAMPLES=5 + yeni clamp değerleriyle sampling yapıldı, metrikler geriledi (EM %2.55→%1.26, BLEU %6.3→%4.5). Model 500k adım boyunca `clamp_first=True, clamp_step=0` ile eğitilmişti; inference'ta farklı rounding davranışı uyumsuzluk yarattı. `clamp_first=False + clamp_step=50` sıfırdan training için doğru — mevcut checkpoint için değil.
+**Durum:** `##` wordpiece filtresi ve `-inf` fallback korundu; sadece clamp eski haline döndü.
+
+---
+
 ## 2026-06-05 — 500k analizi sonrası kritik fix'ler: sıfırdan training
 
 **What:**
 1. `gaussian_diffusion.py` satır 686: CIGN `f` vektörü düzeltildi. `[ddpm_input_pre, ddpm_input_pre]` (sadece görüntü, iki kez) → `[ddpm_input_pre, ans_emb_pre]` (görüntü + CVAE ön-cevap tahmini). Soru bilgisi artık ileri difüzyon sürecine giriyor.
-2. `sample_vqa_GPU.py`: `clamp_first=True` → `False`; `clamp_step` default 200→50. `clamp_first=True` + `clamp_step=0` kombinasyonu tüm 2500 adımda rounding çalıştırıyordu — difüzyon explore edemiyordu. `clamp_first=False` + `clamp_step=50` ile sadece son 50 adımda rounding aktif.
+2. `sample_vqa_GPU.py`: `clamp_first=False` + `clamp_step=50` — sıfırdan training için ayarlandı, mevcut checkpoint'te geri alındı (yukarıdaki karar).
 3. `sample_vqa_GPU.py`: `##` wordpiece filtresi kaldırıldı — `colonoscopy` gibi kelimeler artık subword token'larıyla üretilebilir.
 4. `sample_vqa_GPU.py`: masked_logits tamamen `-inf` olduğunda unmasked logits fallback eklendi — boş cevap oranını düşürmek için.
 5. Notebook `evaluate_and_export_csv`: `yes_no_accuracy` fix — Kvasir-VQA'da `answer_type` alanı olmadığından ref string `yes`/`no` ise `CLOSED`, değilse `OPEN` olarak çıkarım yapılıyor.
-**Why:** 500k sampling analizi: EM %2.55, BLEU %6.3, boş cevap %20.9. CIGN'in yanlış `f` vektörüyle çalışması (soru bilgisi yok) ve rounding'in tüm difüzyon boyunca aktif olması ana performans düşüklüklerinin kaynağı. Sıfırdan training gerekiyor.
-**Not:** Mevcut 500k checkpoint ile sampling fix'leri test edilebilir (clamp, vocab, fallback). CIGN fix'i sıfırdan training gerektirir.
+**Why:** 500k sampling analizi: EM %2.55, BLEU %6.3, boş cevap %20.9. CIGN'in yanlış `f` vektörüyle çalışması (soru bilgisi yok) ana performans düşüklüğünün kaynağı. Sıfırdan training gerekiyor.
+**Sıfırdan training konfigürasyonu:** CIGN fix + clamp_first=False + clamp_step=50 + SEP anchor kaldırılmış + M-3 fix — tüm mimari değişiklikler aktif.
 
 ---
 
