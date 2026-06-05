@@ -57,7 +57,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
 
 def create_argparser():
     defaults = dict(model_path='', step=2500, out_dir='', top_p=0, n_samples=1)
-    decode_defaults = dict(split='test', clamp_step=200, seed2=105, clip_denoised=False)
+    decode_defaults = dict(split='test', clamp_step=50, seed2=105, clip_denoised=False)
     defaults.update(load_defaults_config())
     defaults.update(decode_defaults)
     parser = argparse.ArgumentParser()
@@ -193,17 +193,10 @@ def main():
                    tokenizer.tokenizer.pad_token_id}
     answer_vocab_set.update(special_ids)
     answer_vocab_set.discard(None)
-    # Filter out ## wordpiece continuation tokens — they produce merged artifacts
-    # like "colonoscopysc", "pinksc" when convert_tokens_to_string joins them.
-    # Keep only whole-word tokens and special tokens in the answer vocab.
-    answer_vocab_set = {
-        tid for tid in answer_vocab_set
-        if tid is not None and (
-            tid in special_ids or
-            not tokenizer.tokenizer.convert_ids_to_tokens([tid])[0].startswith('##')
-        )
-    }
-    answer_vocab_ids = torch.tensor(sorted(answer_vocab_set),
+    # Keep all tokens including ## wordpiece continuations — decode_token uses
+    # convert_tokens_to_string which correctly merges them (col + ##on + ##oscopy
+    # → colonoscopy). Filtering ## tokens would break multi-subword answers.
+    answer_vocab_ids = torch.tensor(sorted(tid for tid in answer_vocab_set if tid is not None),
                                     dtype=torch.long, device=th.device("cuda"))
     print(f"### Answer vocabulary size: {len(answer_vocab_ids)} / {tokenizer.vocab_size} tokens")
 
@@ -286,7 +279,7 @@ def main():
                 model_kwargs=model_kwargs,
                 top_p=args.top_p,
                 clamp_step=args.clamp_step,
-                clamp_first=True,
+                clamp_first=False,
                 mask=input_ids_mask,
                 x_start=x_start,
                 gap=step_gap
@@ -301,6 +294,9 @@ def main():
             # -inf mask pushes non-answer tokens out of softmax competition.
             masked_logits = logits.clone()
             masked_logits[:, :, ~answer_mask_bool] = float('-inf')
+            # Fallback: if all positions are -inf (empty vocab mask), use unmasked logits
+            all_inf = (masked_logits == float('-inf')).all(dim=-1, keepdim=True)
+            masked_logits = th.where(all_inf.expand_as(masked_logits), logits, masked_logits)
             decode_ids = masked_logits.argmax(dim=-1)  # bsz, seqlen
 
             for i, seq in enumerate(decode_ids):
