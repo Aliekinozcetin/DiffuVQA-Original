@@ -253,7 +253,11 @@ if __name__ == '__main__':
 
         _rec = [' '.join(r.split()[:128]) for r in recovers]
         _ref = [' '.join(r.split()[:128]) for r in references]
+        import bert_score.utils as _bsu
+        _orig_sent_encode = _bsu.sent_encode
+        _bsu.sent_encode = lambda tok, a: tok.encode(a, add_special_tokens=True, max_length=512, truncation=True)
         P, R, F1 = score(_rec, _ref, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        _bsu.sent_encode = _orig_sent_encode
         precision, recall, f1_score = calculate_f1(references, recovers)
         CIDer =  cider_score(recovers, references)
 
@@ -330,7 +334,11 @@ if __name__ == '__main__':
 
             _rec = [' '.join(r.split()[:128]) for r in recovers]
             _ref = [' '.join(r.split()[:128]) for r in references]
+            import bert_score.utils as _bsu
+            _orig_sent_encode = _bsu.sent_encode
+            _bsu.sent_encode = lambda tok, a: tok.encode(a, add_special_tokens=True, max_length=512, truncation=True)
             P, R, F1 = score(_rec, _ref, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+            _bsu.sent_encode = _orig_sent_encode
 
             print('*' * 30)
             print('avg BLEU score', np.mean(bleu))
