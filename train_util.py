@@ -178,10 +178,14 @@ class TrainLoop:
     def _load_optimizer_state(self):
         opt_filename = f"opt_{self.resume_step:06d}.pt"
         opt_path = bf.join(self.checkpoint_path, opt_filename)
-        if bf.exists(opt_path):
+        exists = bf.exists(opt_path) or os.path.exists(opt_path)
+        if exists:
             logger.log(f"loading optimizer state from: {opt_path}")
-            state_dict = dist_util.load_state_dict(opt_path, map_location=dist_util.dev())
-            self.opt.load_state_dict(state_dict)
+            try:
+                state_dict = dist_util.load_state_dict(opt_path, map_location=dist_util.dev())
+                self.opt.load_state_dict(state_dict)
+            except Exception as e:
+                logger.log(f"optimizer state corrupt or unreadable ({e}), starting fresh")
         else:
             logger.log(f"no optimizer state found at {opt_path}, starting fresh")
 
