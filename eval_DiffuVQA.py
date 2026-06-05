@@ -157,6 +157,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='decoding args.')
     parser.add_argument('--folder', type=str, default='config/ema_0.9999_300000.pt.samples', help='path to the folder of decoded texts')
+    parser.add_argument('--file', type=str, default='', help='single .jsonl file to evaluate (overrides --folder scan)')
     parser.add_argument('--mbr', action='store_true', help='mbr decoding or not')
     parser.add_argument('--sos', type=str, default='[CLS]', help='start token of the sentence')
     parser.add_argument('--eos', type=str, default='[SEP]', help='end token of the sentence')
@@ -168,8 +169,12 @@ if __name__ == '__main__':
     arg = create_argparser().parse_known_args()[0]
     tokenizer = load_tokenizer(arg)
 
-    files = sorted(glob.glob(f"{args.folder}/*jsonl"))
-    print(args.folder)
+    if args.file:
+        files = [args.file]
+        print(args.file)
+    else:
+        files = sorted(glob.glob(f"{args.folder}/*jsonl"))
+        print(args.folder)
     sample_num = 0
     with open(files[0], 'r') as f:
         for row in f:
@@ -251,7 +256,13 @@ if __name__ == '__main__':
             continue
         accuracy = acc / cnt
 
-        P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        _rec = [' '.join(r.split()[:128]) for r in recovers]
+        _ref = [' '.join(r.split()[:128]) for r in references]
+        import bert_score.utils as _bsu
+        _orig_sent_encode = _bsu.sent_encode
+        _bsu.sent_encode = lambda tok, a: tok.encode(a, add_special_tokens=True, max_length=512, truncation=True)
+        P, R, F1 = score(_rec, _ref, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        _bsu.sent_encode = _orig_sent_encode
         precision, recall, f1_score = calculate_f1(references, recovers)
         CIDer =  cider_score(recovers, references)
 
@@ -326,7 +337,13 @@ if __name__ == '__main__':
 
             # print(len(recovers), len(references), len(recovers))
 
-            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+            _rec = [' '.join(r.split()[:128]) for r in recovers]
+            _ref = [' '.join(r.split()[:128]) for r in references]
+            import bert_score.utils as _bsu
+            _orig_sent_encode = _bsu.sent_encode
+            _bsu.sent_encode = lambda tok, a: tok.encode(a, add_special_tokens=True, max_length=512, truncation=True)
+            P, R, F1 = score(_rec, _ref, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+            _bsu.sent_encode = _orig_sent_encode
 
             print('*' * 30)
             print('avg BLEU score', np.mean(bleu))

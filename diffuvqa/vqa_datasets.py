@@ -96,9 +96,9 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
     tokenized_datasets = raw_datasets.map(
         tokenize_function,
         batched=True,
-        num_proc=8,
+        num_proc=1,
         remove_columns=['question', 'answer'],
-        load_from_cache_file=True,
+        load_from_cache_file=False,
         desc="Running tokenizer on dataset",
     )
     print('### tokenized_datasets', tokenized_datasets)
@@ -106,11 +106,10 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
     print('### tokenized_datasets...example', tokenized_datasets['input_id_q'][0], len(tokenized_datasets['input_id_a'][0]))
     print(f"RAM used: {psutil.Process().memory_info().rss / (1024 * 1024):.2f} MB")
 
-    SEP_ID = vocab_dict.tokenizer.sep_token_id  # derived from active tokenizer, not hardcoded
-
     def merge_and_mask(group_lst):
         lst = []
         mask = []
+        SEP_ID = vocab_dict.tokenizer.sep_token_id  # derived from active tokenizer, not hardcoded
         for i in range(len(group_lst['input_id_q'])):
             q_ids = group_lst['input_id_q'][i]
             a_ids = group_lst['input_id_a'][i]
