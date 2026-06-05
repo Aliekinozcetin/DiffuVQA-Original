@@ -456,7 +456,7 @@ class GaussianDiffusion:
         :param progress: if True, show a tqdm progress bar.
         :return: a non-differentiable batch of samples.
         """
-        final = []
+        final = None
         for sample in self.p_sample_loop_progressive(
                 model,
                 shape,
@@ -472,8 +472,8 @@ class GaussianDiffusion:
                 mask=mask,
                 x_start=x_start
         ):
-            final.append(sample['sample'])
-        return final
+            final = sample['sample']  # keep only the last step; callers use samples[-1]
+        return [final]
 
     def p_sample_loop_progressive(
             self,
@@ -852,7 +852,7 @@ class GaussianDiffusion:
 
         Same usage as p_sample_loop().
         """
-        final = []
+        final = None
         for sample in self.ddim_sample_loop_progressive(
                 model,
                 shape,
@@ -869,8 +869,8 @@ class GaussianDiffusion:
                 x_start=x_start,
                 gap=gap
         ):
-            final.append(sample['sample'])
-        return final
+            final = sample['sample']  # keep only the last step; callers use samples[-1]
+        return [final]
 
     def ddim_sample_loop_progressive(
             self,
