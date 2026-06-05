@@ -4,6 +4,18 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-05 — Thesis Reports + notebook outputs main'e taşındı; eval/dataset fix'leri
+
+**What:**
+1. `Thesis Reports/` klasörü (tex, pdf, docx, png) pubmedbert branch'inden main'e taşındı.
+2. `notebooks/`: 100k/300k/500k sampling JSONL'leri, `progress.csv`, eval CSV main'e eklendi.
+3. `eval_DiffuVQA.py`: `--file` argümanı eklendi (tek JSONL dosyasını evaluate etmek için `--folder` scan'ını bypass eder).
+4. `eval_DiffuVQA.py`: BERTScore OverflowError fix — `sent_encode` monkey-patch + 128 kelime truncate (deberta-xlarge-mnli uzun metinlerde token limit aşımı veriyordu).
+5. Branch politikası belirlendi: bundan sonra tüm değişiklikler **sadece `main`'de** yapılır; pubmedbert/biobert'e taşıma gerekirse ilgili kişiye prompt verilir.
+**Why:** Dosyalar yanlışlıkla pubmedbert branch'inde birikmiş, main'de yoktu. BERTScore fix pubmedbert'te vardı ama main'e alınmamıştı.
+
+---
+
 ## 2026-06-05 — clamp geri alındı: mevcut checkpoint ile uyumsuz
 
 **What:** `sample_vqa_GPU.py`: `clamp_step` 50→0, `clamp_first` False→True. Notebook sample-cell'de `--clamp_step 0`.

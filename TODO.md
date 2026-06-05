@@ -86,6 +86,9 @@
 - [x] `pre_answer_loss` 150k sonra gate edildi — late-training embedding drift'inde gradient spike önlenir
 
 - [x] SEP anchor kaldırıldı — `vqa_datasets.py` mask_a tamamen 1 (SEP de noised); `sample_vqa_GPU.py` SEP embedding injection kaldırıldı. Training–inference tutarsızlığı giderildi.
+- [x] `eval_DiffuVQA.py` `--file` argümanı eklendi — tek JSONL dosyasını evaluate etmek için `--folder` scan'ını bypass eder
+- [x] `eval_DiffuVQA.py` BERTScore OverflowError fix — `sent_encode` monkey-patch + 128 kelime truncate (deberta-xlarge-mnli uzun metinlerde patlıyordu)
+- [x] `Thesis Reports/` + notebook outputs (`ema_*.jsonl`, `progress.csv`, eval CSV) pubmedbert'ten main'e taşındı
 - [x] Notebook `LEARNING_STEPS` 500000 → 750000 güncellendi
 - [x] NLL ağırlığı 2x → 1x — grad norm clip'ten çıkarmak için (`gaussian_diffusion.py` satır 741)
 - [x] SEP loss `sep_weight` parametresi eklendi — `decoder_nll` çağrısında 1x (trivial), `terms["nll"]` çağrısında 5x (gerçek gradient)
