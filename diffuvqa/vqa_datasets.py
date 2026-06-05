@@ -96,9 +96,9 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
     tokenized_datasets = raw_datasets.map(
         tokenize_function,
         batched=True,
-        num_proc=1,
+        num_proc=8,
         remove_columns=['question', 'answer'],
-        load_from_cache_file=False,
+        load_from_cache_file=True,
         desc="Running tokenizer on dataset",
     )
     print('### tokenized_datasets', tokenized_datasets)
