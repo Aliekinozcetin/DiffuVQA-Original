@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-06 — RESUME_CHECKPOINT 40k'ya set edildi
+
+**What:** `notebooks/run_diffuvqa_colab.ipynb` config hücresinde `RESUME_CHECKPOINT = ""` → `RESUME_CHECKPOINT = f"{CHECKPOINT_PATH}/ema_0.9999_040000.pt"`.
+**Why:** 40k checkpoint'ten training'e devam edilecek. 40k analizi: rounding agreement 0.11→0.788 (CIGN fix çalışıyor), garbled output %72→%31. EM/BLEU henüz düşük ama 40k'da normal — 100k'da tam değerlendirme yapılacak.
+
+---
+
 ## 2026-06-06 — N_SAMPLES 5→1: majority voting devre dışı
 
 **What:** `notebooks/run_diffuvqa_colab.ipynb` inference config: `N_SAMPLES = 5` → `N_SAMPLES = 1`.
