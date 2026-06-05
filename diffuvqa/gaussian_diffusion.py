@@ -456,7 +456,7 @@ class GaussianDiffusion:
         :param progress: if True, show a tqdm progress bar.
         :return: a non-differentiable batch of samples.
         """
-        final = None
+        final = []
         for sample in self.p_sample_loop_progressive(
                 model,
                 shape,
@@ -472,8 +472,8 @@ class GaussianDiffusion:
                 mask=mask,
                 x_start=x_start
         ):
-            final = sample['sample']  # keep only the last step; callers use samples[-1]
-        return [final]
+            final.append(sample['sample'])
+        return final
 
     def p_sample_loop_progressive(
             self,
@@ -683,7 +683,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(cond_x_start)
 
-        f = torch.cat([ddpm_input_pre, ddpm_input_pre], dim=1)
+        f = torch.cat([ddpm_input_pre, ans_emb_pre], dim=1)
         x_t = self.q_sample(cond_x_start, f, t, noise=noise, mask=mask.to(x_start.device),
                             add_information=True)  # reparametrization trick.
         get_logits = model.model.module.get_logits

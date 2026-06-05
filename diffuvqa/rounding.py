@@ -110,7 +110,7 @@ def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None, get_logit
             model_emb = model.weight
             _, q_idx = get_efficient_knn(model_emb, q_flat.to(model_emb.device))
             q_tokens = q_idx[0]
-        q_embeds = model(q_tokens.to(model.weight.device)).view(B, seq_len, D)
+        q_embeds = model(q_tokens).view(B, seq_len, D)
 
         # Process answer half with answer vocab restriction
         a_flat = a_half.reshape(-1, D)
@@ -126,7 +126,7 @@ def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None, get_logit
             knn_emb = model_emb[answer_vocab_ids] if answer_vocab_ids is not None else model_emb
             _, a_idx = get_efficient_knn(knn_emb, a_flat.to(knn_emb.device))
             a_tokens = answer_vocab_ids[a_idx[0]] if answer_vocab_ids is not None else a_idx[0]
-        a_embeds = model(a_tokens.to(model.weight.device)).view(B, seq_len, D)
+        a_embeds = model(a_tokens).view(B, seq_len, D)
 
         return torch.cat([q_embeds, a_embeds], dim=1).to(old_device)
 
@@ -144,5 +144,5 @@ def denoised_fn_round(args, model, text_emb, t, answer_vocab_ids=None, get_logit
         knn_emb = model_emb[answer_vocab_ids] if answer_vocab_ids is not None else model_emb
         _, indices = get_efficient_knn(knn_emb, text_flat.to(knn_emb.device))
         rounded_tokens = answer_vocab_ids[indices[0]] if answer_vocab_ids is not None else indices[0]
-    return model(rounded_tokens.to(model.weight.device)).view(old_shape).to(old_device)
+    return model(rounded_tokens).view(old_shape).to(old_device)
 

@@ -157,6 +157,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='decoding args.')
     parser.add_argument('--folder', type=str, default='config/ema_0.9999_300000.pt.samples', help='path to the folder of decoded texts')
+    parser.add_argument('--file', type=str, default=None, help='path to a single jsonl file (overrides --folder)')
     parser.add_argument('--mbr', action='store_true', help='mbr decoding or not')
     parser.add_argument('--sos', type=str, default='[CLS]', help='start token of the sentence')
     parser.add_argument('--eos', type=str, default='[SEP]', help='end token of the sentence')
@@ -168,7 +169,10 @@ if __name__ == '__main__':
     arg = create_argparser().parse_known_args()[0]
     tokenizer = load_tokenizer(arg)
 
-    files = sorted(glob.glob(f"{args.folder}/*jsonl"))
+    if args.file is not None:
+        files = [args.file]
+    else:
+        files = sorted(glob.glob(f"{args.folder}/*jsonl"))
     print(args.folder)
     sample_num = 0
     with open(files[0], 'r') as f:
@@ -251,7 +255,11 @@ if __name__ == '__main__':
             continue
         accuracy = acc / cnt
 
-        P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        try:
+            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+        except OverflowError:
+            import torch as _th
+            P = R = F1 = _th.zeros(len(recovers))
         precision, recall, f1_score = calculate_f1(references, recovers)
         CIDer =  cider_score(recovers, references)
 
@@ -326,7 +334,11 @@ if __name__ == '__main__':
 
             # print(len(recovers), len(references), len(recovers))
 
-            P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+            try:
+                P, R, F1 = score(recovers, references, model_type='microsoft/deberta-xlarge-mnli', lang='en', verbose=True)
+            except OverflowError:
+                import torch as _th
+                P = R = F1 = _th.zeros(len(recovers))
 
             print('*' * 30)
             print('avg BLEU score', np.mean(bleu))

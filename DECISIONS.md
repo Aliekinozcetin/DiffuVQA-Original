@@ -4,6 +4,19 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-06 — main'den sync: CIGN fix, deprecated API, N_SAMPLES, eval fix, rounding fix
+
+*What:*
+1. gaussian_diffusion.py: CIGN f vektörü düzeltildi — [ddpm_input_pre, ddpm_input_pre] → [ddpm_input_pre, ans_emb_pre]
+2. gaussian_diffusion.py: p_sample_loop final=None → final=[] list accumulation
+3. vqa_model.py: get_extended_attention_mask deprecated API → direkt additive mask hesabı
+4. rounding.py: gereksiz .to(model.weight.device) cast'ları kaldırıldı
+5. notebook: N_SAMPLES 5→1
+6. eval_DiffuVQA.py: --file argümanı + BERTScore OverflowError fix
+*Why:* main branch'teki düzeltmeler BioBERT branch'ine sync edildi.
+
+---
+
 ## 2026-06-02 — SEP anchor kaldırıldı + loss/grad/LR düzeltmeleri (main'den sync)
 
 **What:**
