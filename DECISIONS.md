@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-05 — `get_extended_attention_mask` deprecated API kaldırıldı
+
+**What:** `vqa_model.py` satır 124: `self.bert.get_extended_attention_mask(q_mask, q_input_shape)` → `(1.0 - q_mask[:, None, None, :].float()) * -10000.0`. `q_input_shape` dead variable da silindi.
+**Why:** `transformers v5.9.0`'da deprecation uyarısı veriyor; v5.12.0'da kaldırılacak → training crash eder. Matematiksel çıktı aynı: [0,1] mask'i BERT encoder'ın beklediği `[batch,1,1,seq_len]` additive mask'e çeviriyor. Training'i etkilemez, resume'da da sorunsuz çalışır.
+
+---
+
 ## 2026-06-05 — Thesis Reports + notebook outputs main'e taşındı; eval/dataset fix'leri
 
 **What:**

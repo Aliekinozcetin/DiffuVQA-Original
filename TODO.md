@@ -49,6 +49,7 @@
 - [x] `basic_utils.py` HF_ENDPOINT bypass: `myTokenizer.__init__` ve `create_model_and_diffusion`'da BERT yüklemesi sırasında `HF_ENDPOINT` geçici kaldırılıyor (hf-mirror BERT servis etmiyor, `OSError` veriyordu)
 - [x] `train.py` + `sample_vqa_GPU.py` başındaki `HF_ENDPOINT=hf-mirror` set'i kaldırıldı — kök neden bu satırdı, BERT from_pretrained tüm process boyunca hf-mirror'a gidiyordu
 - [x] `vqa_model.py` `get_extended_attention_mask` `device=` kwarg kaldırıldı (transformers>=4.36 imza değişikliği, `TypeError` veriyordu)
+- [x] `vqa_model.py` `get_extended_attention_mask` deprecated API tamamen kaldırıldı — `(1.0 - q_mask[:, None, None, :].float()) * -10000.0` ile değiştirildi (transformers v5.12.0'da kaldırılacaktı)
 - [x] `train_util.py` `_SingleGPUDDP` wrapper eklendi: tek GPU'da `model.model.module.*` erişimi (`gaussian_diffusion.py`) `AttributeError` veriyordu, `.module` attribute'unu expose eden minimal wrapper ile düzeltildi
 - [x] `vqa_datasets.py` `load_image_path` çift `imgs/` prefix hatası düzeltildi: `f'{image_root}/{image_name}'` → `os.path.normpath(os.path.join(...))` (JSONL'deki `imgs/` prefix ile `image_root` çakışıyordu → `FileNotFoundError`)
 - [x] `gaussian_diffusion.py` `p_sample_loop` + `ddim_sample_loop` içindeki `print(i)` kaldırıldı (her timestep basılıyordu, tqdm varken çıktıyı dolduruyordu)
