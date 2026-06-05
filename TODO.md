@@ -9,6 +9,7 @@
 - [x] BERT 500k sonuçları rapor tablolarına eklendi (EM %2.55, Yes/No %4.48, BLEU-1 %6.31, F1 %8.67)
 - [x] `yes_no_accuracy` evaluation fix — Kvasir answer_type inference (`evaluate_and_export_csv`, 3 branch)
 - [x] N_SAMPLES=5 majority voting aktif — notebook inference config
+- [x] N_SAMPLES 5→1 — model erken aşamada tutarsız, majority vote fayda sağlamıyor; sampling ~5x hızlandı
 - [x] `training_steps` kolonu evaluation CSV'ye eklendi
 - [x] viz-cell `iloc[0]` → `iloc[-1]` — her zaman en son checkpoint gösteriliyor
 - [x] sample_shape x_start.shape[1] kullanacak şekilde düzeltildi (seq_len yerine)

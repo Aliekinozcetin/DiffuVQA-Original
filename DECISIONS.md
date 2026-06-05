@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-06 — N_SAMPLES 5→1: majority voting devre dışı
+
+**What:** `notebooks/run_diffuvqa_colab.ipynb` inference config: `N_SAMPLES = 5` → `N_SAMPLES = 1`.
+**Why:** Model henüz erken aşamada tutarsız cevaplar üretiyor; 5 sampling de farklı saçma sonuç verince majority vote rastgele seçiyor, fayda sağlamıyor. Sampling ~5x hızlanır. Model olgunlaştıkça (yüksek adımlarda) tekrar artırılabilir.
+
+---
+
 ## 2026-06-05 — `get_extended_attention_mask` deprecated API kaldırıldı
 
 **What:** `vqa_model.py` satır 124: `self.bert.get_extended_attention_mask(q_mask, q_input_shape)` → `(1.0 - q_mask[:, None, None, :].float()) * -10000.0`. `q_input_shape` dead variable da silindi.
