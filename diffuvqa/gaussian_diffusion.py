@@ -683,7 +683,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(cond_x_start)
 
-        f = torch.cat([ddpm_input_pre, ddpm_input_pre], dim=1)
+        f = torch.cat([ddpm_input_pre, ans_emb_pre], dim=1)
         x_t = self.q_sample(cond_x_start, f, t, noise=noise, mask=mask.to(x_start.device),
                             add_information=True)  # reparametrization trick.
         get_logits = model.model.module.get_logits
