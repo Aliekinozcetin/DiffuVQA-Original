@@ -4,6 +4,25 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — Inference-side iyileştirmeler: question-type masking, empty fallback, artifact cleanup
+
+**What:**
+1. `sample_vqa_GPU.py`: Question-type aware answer vocab kısıtlaması — `is/are/does/do/have/has/was/were/can/could/would/will/did/should` ile başlayan sorularda rounding ve final decode yalnızca `{yes, no, not, relevant, not applicable, 0, 1}` token'larına kısıtlandı. Her sample için ayrı per-sample masking uygulandı.
+2. `sample_vqa_GPU.py`: `[SEP]/[PAD]/[CLS]` token'ları YN vocab mask'tan çıkarıldı — bu token'lar seçilince `decode_token` boş string üretiyordu, closed-ended soru başına empty artışına neden oluyordu.
+3. `sample_vqa_GPU.py`: Empty / punctuation-only fallback eklendi — winner `''`, `-`, `;` vb. ise tüm seq pozisyonları sırayla denenerek ilk geçerli non-empty token seçiliyor.
+4. `basic_utils.py` `decode_token`: Baş ve son noktalama artifact'larını silen regex eklendi (`"- center"` → `"center"`, `"; yes"` → `"yes"`). Tek-token fallback path için `isinstance(seq, int)` guard eklendi.
+
+**Why:** 40k–120k checkpoint sample analizi şunu gösterdi: Y/N accuracy %0.3 (1518 sorudan 4-11 doğru), boş cevap %11-23, top üretilen token'lar spatial kelimeler (`center`, `left`, `-`, `;`). Model yes/no öğrenmemiş değil — doğru vocab'a yönlendirilmediği için spatial token'lara kayıyor. Inference-side kısıtlama eğitim gerektirmeden uygulandı.
+
+**Sonuç (yeni sample ölçümü):**
+- Exact match: 40k %0.42 → %1.90 (4.5x), 80k %0.25 → %1.43 (5.7x)
+- Y/N accuracy: 40k %0.7 → %5.9 (8x), 80k %0.3 → %4.6 (15x)
+- Empty artışı ([SEP] bug): `special_ids -= yn_mask` fix ile giderildi
+
+**How to apply:** Eğitim gerekmez. Mevcut checkpoint'leri `sample_vqa_GPU.py` ile yeniden sample et.
+
+---
+
 ## 2026-06-06 — main'den sync: CIGN fix, deprecated API, N_SAMPLES, eval fix, rounding fix
 
 *What:*

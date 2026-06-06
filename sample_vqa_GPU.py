@@ -213,6 +213,9 @@ def main():
         _yn_token_ids.update(_ids)
     _yn_token_ids.update(special_ids)
     _yn_token_ids = {t for t in _yn_token_ids if t in answer_vocab_set and t is not None}
+    # [SEP]/[PAD]/[CLS] yn_mask'a girerse model bunları seçip boş decode üretiyor — çıkar.
+    _yn_token_ids -= special_ids
+    _yn_token_ids.discard(None)
     yn_mask_bool = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
     yn_mask_bool[torch.tensor(sorted(_yn_token_ids), dtype=torch.long, device=th.device("cuda"))] = True
     print(f"### YN vocab size: {int(yn_mask_bool.sum())} tokens")
@@ -348,10 +351,15 @@ def main():
         for _wi, (candidates, conf, agr) in enumerate(
                 zip(all_vote_candidates, confidence_per_seq, agreement_per_seq)):
             winner = Counter(candidates).most_common(1)[0][0]
-            # Empty / punctuation-only fallback: position-0 argmax from masked logits.
+            # Empty / punctuation-only fallback: tüm pozisyonları dene, ilk non-empty decode'u al.
             if winner.strip() in _PUNCT_ONLY:
-                _best_id = masked_logits[_wi, 0].argmax().unsqueeze(0)
-                winner = tokenizer.decode_token(_best_id.cpu())
+                winner = ''
+                for _pos in range(masked_logits.size(1)):
+                    _best_id = masked_logits[_wi, _pos].argmax().unsqueeze(0)
+                    _candidate = tokenizer.decode_token(_best_id.cpu())
+                    if _candidate.strip() and _candidate.strip() not in _PUNCT_ONLY:
+                        winner = _candidate
+                        break
             word_lst_recover.append(winner)
             confidence_lst.append(round(conf.item(), 6))
             rounding_agreement_lst.append(round(agr.item(), 6))
