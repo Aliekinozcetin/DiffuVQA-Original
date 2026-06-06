@@ -200,6 +200,23 @@ def main():
                                     dtype=torch.long, device=th.device("cuda"))
     print(f"### Answer vocabulary size: {len(answer_vocab_ids)} / {tokenizer.vocab_size} tokens")
 
+    # --- Question-type aware vocab kısıtlaması ---
+    # Closed-ended sorular (is/are/does/...) → sadece yes/no/not relevant token'larına izin ver.
+    CLOSED_STARTERS = frozenset({
+        'is', 'are', 'does', 'do', 'have', 'has', 'was', 'were',
+        'can', 'could', 'would', 'will', 'did', 'should'
+    })
+    _yn_surface = ['yes', 'no', 'not', 'relevant', 'not relevant', 'not applicable', '0', '1']
+    _yn_token_ids = set()
+    for _ans in _yn_surface:
+        _ids = tokenizer.tokenizer(_ans, add_special_tokens=False)['input_ids']
+        _yn_token_ids.update(_ids)
+    _yn_token_ids.update(special_ids)
+    _yn_token_ids = {t for t in _yn_token_ids if t in answer_vocab_set and t is not None}
+    yn_mask_bool = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
+    yn_mask_bool[torch.tensor(sorted(_yn_token_ids), dtype=torch.long, device=th.device("cuda"))] = True
+    print(f"### YN vocab size: {int(yn_mask_bool.sum())} tokens")
+
     text_iterator = iter(all_text_data)
     image_iterator = iter(all_image_data)
 
@@ -212,6 +229,14 @@ def main():
 
         input_ids_x = cond.pop('input_ids').to(th.device("cuda"))
         input_ids_a = cond.pop('input_a_id').to(th.device("cuda"))
+
+        # Soru tipini tespit et: ilk kelimeye göre closed/open sınıfı belirle.
+        q_first_words = []
+        for q_seq in input_ids_x[:, :args.seq_len]:
+            q_text = tokenizer.decode_token(q_seq.cpu())
+            fw = q_text.strip().lower().split()[0] if q_text.strip() else ''
+            q_first_words.append(fw)
+
         input_emb = model.get_embeds(input_ids_a)
         # qid = cond.pop('qid')
         # print(qid)
@@ -290,11 +315,14 @@ def main():
             sample = sample[:, a_shape:, :]
             logits = model.get_logits(sample)  # bsz, seqlen, vocab
 
-            # Decode: lm_head logits masked to answer vocab, then argmax.
-            # -inf mask pushes non-answer tokens out of softmax competition.
+            # Per-sample vocab masking: closed-ended sorular → yn_mask, open → answer_mask.
             masked_logits = logits.clone()
-            masked_logits[:, :, ~answer_mask_bool] = float('-inf')
-            # Fallback: if all positions are -inf (empty vocab mask), use unmasked logits
+            for _i, _fw in enumerate(q_first_words):
+                if _fw in CLOSED_STARTERS:
+                    masked_logits[_i, :, ~yn_mask_bool] = float('-inf')
+                else:
+                    masked_logits[_i, :, ~answer_mask_bool] = float('-inf')
+            # Fallback: tüm pozisyonlar -inf ise (vocab mask boş) ham logits kullan.
             all_inf = (masked_logits == float('-inf')).all(dim=-1, keepdim=True)
             masked_logits = th.where(all_inf.expand_as(masked_logits), logits, masked_logits)
             decode_ids = masked_logits.argmax(dim=-1)  # bsz, seqlen
@@ -316,8 +344,14 @@ def main():
         confidence_lst = []
         rounding_agreement_lst = []
 
-        for candidates, conf, agr in zip(all_vote_candidates, confidence_per_seq, agreement_per_seq):
+        _PUNCT_ONLY = frozenset({'-', ';', ',', '.', ':', '–', '—', '', ' '})
+        for _wi, (candidates, conf, agr) in enumerate(
+                zip(all_vote_candidates, confidence_per_seq, agreement_per_seq)):
             winner = Counter(candidates).most_common(1)[0][0]
+            # Empty / punctuation-only fallback: position-0 argmax from masked logits.
+            if winner.strip() in _PUNCT_ONLY:
+                _best_id = masked_logits[_wi, 0].argmax().unsqueeze(0)
+                winner = tokenizer.decode_token(_best_id.cpu())
             word_lst_recover.append(winner)
             confidence_lst.append(round(conf.item(), 6))
             rounding_agreement_lst.append(round(agr.item(), 6))

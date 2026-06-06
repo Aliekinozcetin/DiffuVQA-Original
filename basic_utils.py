@@ -81,6 +81,9 @@ class myTokenizer():
             tokens = re.sub(r'^##\s*', '', tokens)
             # remove non-ASCII characters (e.g. ∑, π, ∂ from biomedical vocab)
             tokens = re.sub(r'[^\x00-\x7F]+', ' ', tokens).strip()
+            # strip leading/trailing punctuation artifacts (e.g. "- center" → "center", "; yes" → "yes")
+            tokens = re.sub(r'^[\s\-;,.:–—]+', '', tokens).strip()
+            tokens = re.sub(r'[\s\-;,.:–—]+$', '', tokens).strip()
         else:
             assert False, "invalid type of vocab_dict"
         return tokens
