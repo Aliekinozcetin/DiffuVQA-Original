@@ -69,6 +69,8 @@ class myTokenizer():
             tokens = " ".join([self.rev_tokenizer[x] for x in seq]).replace('__ ', '').replace('@@ ', '')
         elif isinstance(self.tokenizer, PreTrainedTokenizerFast):
             seq = seq.squeeze(-1).tolist()
+            if isinstance(seq, int):
+                seq = [seq]
             # truncate at first [SEP] token
             if self.sep_token_id in seq:
                 seq = seq[:seq.index(self.sep_token_id)]
