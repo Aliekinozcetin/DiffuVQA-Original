@@ -187,12 +187,13 @@ def main():
             else:
                 for row in ids:
                     answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
-    # always keep special tokens so [CLS]/[SEP]/[PAD] boundaries work
-    special_ids = {tokenizer.tokenizer.cls_token_id,
-                   tokenizer.tokenizer.sep_token_id,
-                   tokenizer.tokenizer.pad_token_id}
-    answer_vocab_set.update(special_ids)
+    # Special tokens ([CLS], [SEP], [PAD]) intentionally excluded from answer vocab.
+    # Including them caused model to collapse onto [SEP]/[PAD] as confidence grew,
+    # producing empty strings after decode_token truncation at [SEP].
     answer_vocab_set.discard(None)
+    answer_vocab_set.discard(tokenizer.tokenizer.cls_token_id)
+    answer_vocab_set.discard(tokenizer.tokenizer.sep_token_id)
+    answer_vocab_set.discard(tokenizer.tokenizer.pad_token_id)
     # Keep all tokens including ## wordpiece continuations — decode_token uses
     # convert_tokens_to_string which correctly merges them (col + ##on + ##oscopy
     # → colonoscopy). Filtering ## tokens would break multi-subword answers.

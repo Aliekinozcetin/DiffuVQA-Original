@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — answer_vocab'dan special token'lar çıkarıldı (boş cevap fix)
+
+**What:** `sample_vqa_GPU.py`: `answer_vocab_set`'e `[CLS]`/`[SEP]`/`[PAD]` eklenmesi kaldırıldı; bunun yerine `discard()` ile aktif olarak dışlanıyor.
+**Why:** 180k analizinde boş cevap oranı %34→%40.5'e çıktı. Sebep: special token'lar answer vocabulary'deyken model confidence arttıkça `[SEP]`/`[PAD]` embedding'ine collapse ediyor, `decode_token` [SEP]'de kesiyor → boş string. Training gerektirmez, sadece yeniden sampling yeterli.
+
+---
+
 ## 2026-06-06 — RESUME_CHECKPOINT 40k'ya set edildi
 
 **What:** `notebooks/run_diffuvqa_colab.ipynb` config hücresinde `RESUME_CHECKPOINT = ""` → `RESUME_CHECKPOINT = f"{CHECKPOINT_PATH}/ema_0.9999_040000.pt"`.
