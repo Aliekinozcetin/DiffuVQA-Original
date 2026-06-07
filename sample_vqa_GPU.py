@@ -242,6 +242,7 @@ def main():
 
     text_iterator = iter(all_text_data)
     image_iterator = iter(all_image_data)
+    fout = open(out_path, 'w', encoding='utf-8')
 
     total_batches = len(all_text_data)
     pbar = tqdm(zip(image_iterator, text_iterator), total=total_batches, desc="Sampling", unit="batch")
@@ -413,7 +414,6 @@ def main():
             word_lst_source.append(tokenizer.decode_token(seq[:len_x]))
             word_lst_ref.append(tokenizer.decode_token(seq[len_x:]))
 
-        fout = open(out_path, 'a')
         for (recov, ref, src, img_name, conf, agr) in zip(
                 word_lst_recover, word_lst_ref, word_lst_source, image_name,
                 confidence_lst, rounding_agreement_lst):
@@ -425,7 +425,7 @@ def main():
                 "confidence": conf,
                 "rounding_agreement": agr,
             }), file=fout)
-        fout.close()
+        fout.flush()
         # break
         #
         # for (recov, ref, src) in zip(word_lst_recover, word_lst_ref, word_lst_source):
@@ -434,6 +434,7 @@ def main():
         #           file=fout)
         # fout.close()
 
+    fout.close()
     print('### Total takes {:.2f}s .....'.format(time.time() - start_t))
     print(f'### Written the decoded output to {out_path}')
 
