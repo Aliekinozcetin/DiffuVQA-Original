@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — sample_vqa_GPU: output dosyası append → write moduna alındı
+
+**What:** `sample_vqa_GPU.py`: `fout = open(out_path, 'a')` döngü içinden kaldırıldı. Döngü öncesi `open(out_path, 'w')` ile bir kez açılıyor, her batch'te `flush()` yapılıyor, döngü sonrası kapatılıyor.
+**Why:** Append modunda aynı checkpoint iki kez çalıştırılınca eski+yeni satırlar aynı dosyada birikiyor, analiz bozuluyor. Write modu her sampling'de dosyayı sıfırlar; Drive'da manuel silme gerekmez.
+
+---
+
 ## 2026-06-07 — answer_vocab'dan special token'lar çıkarıldı (boş cevap fix)
 
 **What:** `sample_vqa_GPU.py`: `answer_vocab_set`'e `[CLS]`/`[SEP]`/`[PAD]` eklenmesi kaldırıldı; bunun yerine `discard()` ile aktif olarak dışlanıyor.
