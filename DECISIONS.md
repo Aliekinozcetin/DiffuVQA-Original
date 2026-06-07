@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — pre_answer_loss gate: 150k→300k decay + 0.05 floor
+
+**What:** `train_util.py`: cosine decay gate genişletildi.
+- Decay süresi: 150k → 300k adım
+- Floor eklendi: `max(0.05, ...)` — hiçbir zaman tam sıfırlanmıyor
+
+**Why:** Deneysel sonuçlarda 150k→200k arasında tüm metriklerde regresyon gözlemlendi (Acc: 0.29%→0.21%, BLEU: 3.12%→2.74%). Cosine gate tam 150k'da sıfıra inince model CVAE anchor'ını kaybedip sürükleniyor. Floor ve uzatılmış decay ile anchor sinyali korunuyor.
+
+---
+
 ## 2026-06-02 — SEP anchor kaldırıldı + loss/grad/LR düzeltmeleri (main'den sync)
 
 **What:**
