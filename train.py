@@ -114,8 +114,8 @@ def main():
     # torch.compile: Triton kernel fusion on A100, ~20-30% speedup.
     # Disabled by default; set USE_TORCH_COMPILE=1 in notebook config to enable.
     if getattr(args, 'use_torch_compile', False):
-        import torch._dynamo
-        torch._dynamo.config.suppress_errors = True
+        import torch._dynamo as _dynamo
+        _dynamo.config.suppress_errors = True
         model = torch.compile(model, mode="reduce-overhead")
         print("### torch.compile enabled (reduce-overhead mode)")
 

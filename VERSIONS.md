@@ -93,6 +93,11 @@ Metrikler Kvasir-VQA test seti üzerinden hesaplanmıştır (5886 satır, 20 sor
 - Effective training: batch=4 ile 3M → batch=32 ile 24M sample-exposure/750k step
 - Overfit başlangıcının 80k'dan çok daha geç gelmesi bekleniyor
 
+### Bugfix'ler (versiyon artırmadı)
+| Tarih | Dosya | Açıklama |
+|---|---|---|
+| 2026-06-07 | `train.py` | `import torch._dynamo` → `import torch._dynamo as _dynamo` — `use_torch_compile=False` olduğunda `UnboundLocalError` çöktürüyordu |
+
 ---
 
 ## Versiyon Kuralları

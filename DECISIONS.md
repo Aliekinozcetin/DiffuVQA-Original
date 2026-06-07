@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — Bugfix: `train.py` UnboundLocalError — `import torch._dynamo` yerel scope çakışması
+
+**What:** `train.py` `main()` içindeki `import torch._dynamo` satırı `import torch._dynamo as _dynamo` olarak değiştirildi. İçeride `torch._dynamo.config.suppress_errors = True` → `_dynamo.config.suppress_errors = True` olarak güncellendi.
+
+**Why:** Python, bir fonksiyon içinde herhangi bir yerde `import X` (veya `X = ...`) görürse `X`'i o fonksiyonun *yerel* değişkeni olarak işaretler. `use_torch_compile=False` olduğunda if bloğu hiç çalışmıyor, yani `torch` hiç bind edilmiyor — ama Python yine de onu local sayıyor. Fonksiyonun üstündeki `if torch.cuda.device_count() > 1:` satırına gelindiğinde `UnboundLocalError: cannot access local variable 'torch'` fırlatılıyor. `as _dynamo` ile farklı bir isim kullanınca `torch` adı local scope'a bağlanmıyor, modül-seviyesi `import torch` geri devreye giriyor.
+
+**How to apply:** Eğitim kodu değişikliği; checkpoint veya veri seti etkilenmiyor. Mevcut tüm checkpoint'lerle uyumlu.
+
+---
+
 ## 2026-06-07 — v0.4: Kaynak optimizasyonu — batch=32, BF16, DataLoader, torch.compile
 
 **What:**
