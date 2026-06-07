@@ -187,21 +187,18 @@ def main():
             else:
                 for row in ids:
                     answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
-    # always keep special tokens so [CLS]/[SEP]/[PAD] boundaries work
-    special_ids = {tokenizer.tokenizer.cls_token_id,
-                   tokenizer.tokenizer.sep_token_id,
-                   tokenizer.tokenizer.pad_token_id}
-    answer_vocab_set.update(special_ids)
     answer_vocab_set.discard(None)
-    # Filter out ## wordpiece continuation tokens — they produce merged artifacts
-    # like "colonoscopysc", "pinksc" when convert_tokens_to_string joins them.
-    # Keep only whole-word tokens and special tokens in the answer vocab.
+    # Exclude special tokens: model collapses to [SEP]/[PAD] embedding when they
+    # are in the answer vocab, causing decode_token to cut at [SEP] → empty string.
+    for _sid in (tokenizer.tokenizer.cls_token_id,
+                 tokenizer.tokenizer.sep_token_id,
+                 tokenizer.tokenizer.pad_token_id):
+        answer_vocab_set.discard(_sid)
+    # Filter out ## wordpiece continuation tokens — they produce merged artifacts.
     answer_vocab_set = {
         tid for tid in answer_vocab_set
-        if tid is not None and (
-            tid in special_ids or
-            not tokenizer.tokenizer.convert_ids_to_tokens([tid])[0].startswith('##')
-        )
+        if tid is not None and
+        not tokenizer.tokenizer.convert_ids_to_tokens([tid])[0].startswith('##')
     }
     answer_vocab_ids = torch.tensor(sorted(answer_vocab_set),
                                     dtype=torch.long, device=th.device("cuda"))
@@ -212,6 +209,7 @@ def main():
 
     total_batches = len(all_text_data)
     pbar = tqdm(zip(image_iterator, text_iterator), total=total_batches, desc="Sampling", unit="batch")
+    fout = open(out_path, 'w')
     for image, cond in pbar:
 
         if not cond:
@@ -330,7 +328,6 @@ def main():
             word_lst_source.append(tokenizer.decode_token(seq[:len_x]))
             word_lst_ref.append(tokenizer.decode_token(seq[len_x:]))
 
-        fout = open(out_path, 'a')
         for (recov, ref, src, img_name, conf, agr) in zip(
                 word_lst_recover, word_lst_ref, word_lst_source, image_name,
                 confidence_lst, rounding_agreement_lst):
@@ -342,7 +339,7 @@ def main():
                 "confidence": conf,
                 "rounding_agreement": agr,
             }), file=fout)
-        fout.close()
+        fout.flush()
         # break
         #
         # for (recov, ref, src) in zip(word_lst_recover, word_lst_ref, word_lst_source):
@@ -351,6 +348,7 @@ def main():
         #           file=fout)
         # fout.close()
 
+    fout.close()
     print('### Total takes {:.2f}s .....'.format(time.time() - start_t))
     print(f'### Written the decoded output to {out_path}')
 
