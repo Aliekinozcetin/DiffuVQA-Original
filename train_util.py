@@ -65,11 +65,13 @@ class TrainLoop:
             eval_interval=-1,
             warmup_steps=2000,
             lr_min=5e-6,
+            use_bf16=False,
     ):
         self.model = model
         self.diffusion = diffusion
         self.data = data
         self.eval_data = eval_data
+        self.use_bf16 = use_bf16
         self.batch_size = batch_size
         self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
@@ -91,6 +93,12 @@ class TrainLoop:
 
         self.warmup_steps = warmup_steps
         self.lr_min = lr_min
+        # BF16 AMP: A100 has native BF16 Tensor Cores, 2x faster than FP32.
+        # BF16 rarely needs loss scaling (wider dynamic range than FP16).
+        self.bf16_scaler = (
+            th.cuda.amp.GradScaler(enabled=False)  # no scaling for BF16
+            if use_bf16 else None
+        )
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size
@@ -301,7 +309,8 @@ class TrainLoop:
                 model_kwargs=micro_cond,
             )
 
-            losses = compute_losses()
+            with th.autocast("cuda", dtype=th.bfloat16, enabled=self.use_bf16):
+                losses = compute_losses()
 
             if isinstance(self.schedule_sampler, LossAwareSampler):
                 self.schedule_sampler.update_with_local_losses(
@@ -316,6 +325,8 @@ class TrainLoop:
             if self.use_fp16:
                 loss_scale = 2 ** self.lg_loss_scale
                 (loss * loss_scale).backward()
+            elif self.use_bf16:
+                self.bf16_scaler.scale(loss).backward()
             else:
                 loss.backward()
 
@@ -354,13 +365,20 @@ class TrainLoop:
             )
 
     def optimize_normal(self):
-        if self.gradient_clipping > 0:
-            self.grad_clip()
-        self._log_grad_norm()
-        self._anneal_lr()
-        # scheduler = torch.optim.lr_scheduler.StepLR(self.opt, step_size=20000, gamma=0.1)
-        self.opt.step()
-        # scheduler.step()
+        if self.use_bf16:
+            if self.gradient_clipping > 0:
+                self.bf16_scaler.unscale_(self.opt)
+                self.grad_clip()
+            self._log_grad_norm()
+            self._anneal_lr()
+            self.bf16_scaler.step(self.opt)
+            self.bf16_scaler.update()
+        else:
+            if self.gradient_clipping > 0:
+                self.grad_clip()
+            self._log_grad_norm()
+            self._anneal_lr()
+            self.opt.step()
         for rate, params in zip(self.ema_rate, self.ema_params):
             update_ema(params, self.master_params, rate=rate)
 

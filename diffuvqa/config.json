@@ -61,5 +61,7 @@
   "model": "transformer-bert",
   "mlp_ratio" : 4,
   "warmup_steps": 2000,
-  "lr_min": 0.000005
+  "lr_min": 0.000005,
+  "use_bf16": false,
+  "use_torch_compile": false
 }

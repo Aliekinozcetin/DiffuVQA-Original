@@ -111,6 +111,14 @@ def main():
 
     model.to(dist_util.dev())
 
+    # torch.compile: Triton kernel fusion on A100, ~20-30% speedup.
+    # Disabled by default; set USE_TORCH_COMPILE=1 in notebook config to enable.
+    if getattr(args, 'use_torch_compile', False):
+        import torch._dynamo
+        torch._dynamo.config.suppress_errors = True
+        model = torch.compile(model, mode="reduce-overhead")
+        print("### torch.compile enabled (reduce-overhead mode)")
+
     pytorch_total_params = sum(p.numel() for p in model.parameters())
 
     logger.log(f'### The parameter count is {pytorch_total_params}')
@@ -144,6 +152,7 @@ def main():
         eval_interval=args.eval_interval,
         warmup_steps=getattr(args, 'warmup_steps', 2000),
         lr_min=getattr(args, 'lr_min', 5e-6),
+        use_bf16=getattr(args, 'use_bf16', False),
     ).run_loop(args)
 
 if __name__ == "__main__":

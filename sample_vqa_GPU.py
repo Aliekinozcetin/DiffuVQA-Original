@@ -206,10 +206,12 @@ def main():
 
     # --- Question-type aware vocab kısıtlaması ---
     # Closed-ended sorular (is/are/does/...) → sadece yes/no/not relevant token'larına izin ver.
+    # İstisna: "are there any X? check all that are present" → OE cevap (polyp, none, z-line vb.)
     CLOSED_STARTERS = frozenset({
         'is', 'are', 'does', 'do', 'have', 'has', 'was', 'were',
         'can', 'could', 'would', 'will', 'did', 'should'
     })
+    OE_OVERRIDE_PHRASES = frozenset({'check all', 'list all', 'select all'})
     _yn_surface = ['yes', 'no', 'not', 'relevant', 'not relevant', 'not applicable', '0', '1']
     _yn_token_ids = set()
     for _ans in _yn_surface:
@@ -225,12 +227,18 @@ def main():
     yn_mask_bool = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
     yn_mask_bool[torch.tensor(sorted(_yn_content_ids), dtype=torch.long, device=th.device("cuda"))] = True
 
-    yn_mask_with_sep = yn_mask_bool.clone()
+    # Fix4-B: yn_mask_with_sep for positions 1+ contains ONLY [SEP] and [PAD].
+    # Previous version also included yes/no/not/relevant at pos 1+, causing "yes no" / "no 0" artifacts.
+    # With only SEP+PAD allowed at pos 1+, decode_token truncates at SEP → clean single-word answer.
+    yn_mask_with_sep = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
     _sep_id = tokenizer.tokenizer.sep_token_id
+    _pad_id = tokenizer.tokenizer.pad_token_id
     if _sep_id is not None:
         yn_mask_with_sep[_sep_id] = True
+    if _pad_id is not None:
+        yn_mask_with_sep[_pad_id] = True
 
-    print(f"### YN vocab size: {int(yn_mask_bool.sum())} content tokens (+ SEP at pos 1+)")
+    print(f"### YN vocab size: {int(yn_mask_bool.sum())} content tokens (pos 1+ = SEP+PAD only)")
 
     text_iterator = iter(all_text_data)
     image_iterator = iter(all_image_data)
@@ -246,11 +254,14 @@ def main():
         input_ids_a = cond.pop('input_a_id').to(th.device("cuda"))
 
         # Soru tipini tespit et: ilk kelimeye göre fallback heuristic (classifier için de sakla).
+        # OE override: "check all that are present" soruları CLOSED_STARTERS ile başlasa da OE cevap istiyor.
         q_first_words = []
+        q_texts_lower = []
         for q_seq in input_ids_x[:, :args.seq_len]:
             q_text = tokenizer.decode_token(q_seq.cpu())
             fw = q_text.strip().lower().split()[0] if q_text.strip() else ''
             q_first_words.append(fw)
+            q_texts_lower.append(q_text.strip().lower())
 
         input_emb = model.get_embeds(input_ids_a)
         # qid = cond.pop('qid')
@@ -274,8 +285,10 @@ def main():
         # Blend: if classifier says closed OR first-word heuristic says closed → closed.
         # During early training when classifier is random, heuristic dominates; later
         # the classifier takes over and catches harder cases (e.g. "what colour" with yes/no ref).
+        # OE override: "check all / list all / select all" soruları OE cevap istiyor (polyp, none, z-line).
         is_closed_pred = [
-            _cls_closed[_i] or (q_first_words[_i] in CLOSED_STARTERS)
+            (_cls_closed[_i] or (q_first_words[_i] in CLOSED_STARTERS))
+            and not any(ph in q_texts_lower[_i] for ph in OE_OVERRIDE_PHRASES)
             for _i in range(len(q_first_words))
         ]
 

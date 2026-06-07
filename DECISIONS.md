@@ -4,6 +4,24 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — v0.4: Kaynak optimizasyonu — batch=32, BF16, DataLoader, torch.compile
+
+**What:**
+1. `notebooks/run_diffuvqa_colab.ipynb`: `TRAIN_BATCH_SIZE` 4 → 32. A100 GPU VRAM %14 kullanımdan ~%80'e çıkıyor.
+2. `diffuvqa/vqa_datasets.py`: DataLoader `num_workers` 4 → 8, `pin_memory=True`, `persistent_workers=True`. RAM %9 kullanımda iken data loading bottleneck'ti; pin_memory CPU→GPU transferini pinned memory üzerinden yapıyor.
+3. `train_util.py` + `train.py`: BF16 (bfloat16) AMP desteği eklendi. A100 native Tensor Core'ları kullanıyor, FP32'den 1.5-2x hızlı. BF16'nın dynamic range'i FP16'dan geniş, loss scaling gerekmez. `use_bf16=True` ile etkinleştiriliyor.
+4. `train.py`: `torch.compile(model, mode="reduce-overhead")` desteği eklendi. Triton kernel fusion ile ~%20-30 hız kazanımı. Varsayılan kapalı (`USE_TORCH_COMPILE=False`), ilk çalıştırmada ~5 dakika warmup süresi var.
+5. `diffuvqa/config.json`: `use_bf16: false`, `use_torch_compile: false` flag'leri eklendi.
+6. `notebooks/run_diffuvqa_colab.ipynb`: `USE_BF16=True`, `USE_TORCH_COMPILE=False` config değişkenleri ve `--use_bf16`, `--use_torch_compile` argümanları training komutuna eklendi.
+
+**Why:** v0.3 sampling analizi gösterdi ki GPU VRAM 5.8/40 GB (%14), RAM 7.5/83.5 GB (%9) kullanılıyor. Batch=4 ile her gradient güncellemesi çok gürültülü — cosine LR ve 2x loss weight uygulanmış olmasına rağmen v0.3'te overfit 80k'da başlıyor. Batch=32 ile effective training 3M → 24M sample-exposure/750k step, gradient kalitesi ve genelleme artmalı.
+
+**How to apply:** Notebook Config hücresinde `TRAIN_BATCH_SIZE=32`, `USE_BF16=True` ayarla. Sıfırdan veya mevcut checkpoint'ten devam edilebilir. `strict=False` load zaten mevcut.
+
+**Beklenen etki:** Overfit başlangıcının 80k'dan çok daha geç gelmesi; v0.3'te 80k peak olan exact match'in daha yüksek bir checkpoint'te peak yapması.
+
+---
+
 ## 2026-06-07 — Training + inference iyileştirmeleri: Fix3, loss weighting, cosine LR, seq_len, classifier head
 
 **What:**

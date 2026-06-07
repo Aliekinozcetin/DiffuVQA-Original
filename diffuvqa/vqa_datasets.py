@@ -51,11 +51,12 @@ def load_data_vqa(
         # sampler = DistributedSampler(dataset)
         data_loader = DataLoader(
             dataset,
-            batch_size=batch_size,  # 20,
+            batch_size=batch_size,
             drop_last=True,
-            # sampler=sampler,
             shuffle=True,
-            num_workers=4,
+            num_workers=8,
+            pin_memory=True,
+            persistent_workers=True,
         )
     else:
         data_loader = DataLoader(
@@ -63,7 +64,9 @@ def load_data_vqa(
             batch_size=batch_size,
             drop_last=False,
             shuffle=False,
-            num_workers=4,
+            num_workers=8,
+            pin_memory=True,
+            persistent_workers=True,
         )
 
     # return data_loader
