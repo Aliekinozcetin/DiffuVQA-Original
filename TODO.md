@@ -105,7 +105,9 @@
 - [x] answer_vocab'dan [CLS]/[SEP]/[PAD] çıkarıldı — collapse → boş cevap sorunu düzeltildi (`sample_vqa_GPU.py`)
 - [x] `sample_vqa_GPU.py` output dosyası append→write moduna alındı — aynı checkpoint tekrar çalıştırılınca satırlar çift yazılıyordu
 - [x] answer_vocab: [SEP] geri eklendi, [CLS]/[PAD] dışarıda kaldı — garbled output fix
-- [ ] 180k sampling tekrar yap ([SEP] fix sonrası): boş cevap < %20, garbled < %20 hedefi
+- [x] 180k sampling tekrar yapıldı ([SEP] fix sonrası) — EM %0.22, boş %41.3, garbled %32.1; root cause sep_weight=5.0 idi
+- [x] sep_weight 5.0 → 1.0 — NLL %83'ü SEP'e gidiyordu, content gradient %17'ye düşüyordu (`gaussian_diffusion.py`)
+- [x] Notebook RESUME_CHECKPOINT sıfırlandı (`""`) — sep_weight=1.0 ile sıfırdan training başlatılacak
 - [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle

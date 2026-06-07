@@ -723,8 +723,9 @@ class GaussianDiffusion:
         decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
-        # model prediction path: 5x SEP weight gives real gradient toward SEP production
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=5.0)
+        # sep_weight=1.0: SEP ve content token'lar eşit ağırlıkta.
+        # 5x weight NLL'nin %83'ünü SEP'e harcıyordu → content gradient %17'ye düşüyordu → EM kötüleşiyordu.
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
         target_answer = x_start_mean.detach()

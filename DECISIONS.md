@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — sep_weight 5.0 → 1.0, notebook RESUME_CHECKPOINT sıfırlandı, sıfırdan training
+
+**What:** `gaussian_diffusion.py` `_token_discrete_loss` çağrısında `sep_weight=5.0` → `sep_weight=1.0`. `notebooks/run_diffuvqa_colab.ipynb` `RESUME_CHECKPOINT = ""` yapıldı (sıfırdan eğitim için).
+**Why:** 180k sonrası analiz: EM %0.22, garbled %32, boş %41. Root cause — sep_weight=5 NLL'nin %83.3'ünü [SEP]'e harcıyordu, content token'larına yalnızca %17 gradient kalıyordu. Model anlamlı kelime üretmek yerine [SEP] pozisyonunu optimize etti. sep_weight=1 ile SEP ve content token'lar eşit ağırlıkta; tüm answer token'lar tam gradient alıyor. Sıfırdan training gerekli (mevcut checkpoint sep_weight=5 eğitimi).
+
+---
+
 ## 2026-06-07 — answer_vocab'a [SEP] geri eklendi, [CLS]/[PAD] dışarıda kaldı
 
 **What:** `sample_vqa_GPU.py`: `answer_vocab_set.discard(sep_token_id)` satırı kaldırıldı. [CLS] ve [PAD] hâlâ dışarıda.
