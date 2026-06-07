@@ -104,7 +104,8 @@
 - [x] Eğitimi A100 Colab'da uçtan uca test et, `progress.csv` yazıldığını doğrula — 40k'da doğrulandı
 - [x] answer_vocab'dan [CLS]/[SEP]/[PAD] çıkarıldı — collapse → boş cevap sorunu düzeltildi (`sample_vqa_GPU.py`)
 - [x] `sample_vqa_GPU.py` output dosyası append→write moduna alındı — aynı checkpoint tekrar çalıştırılınca satırlar çift yazılıyordu
-- [ ] 180k sampling tekrar yap (special token fix sonrası): boş cevap < %20 hedefi
+- [x] answer_vocab: [SEP] geri eklendi, [CLS]/[PAD] dışarıda kaldı — garbled output fix
+- [ ] 180k sampling tekrar yap ([SEP] fix sonrası): boş cevap < %20, garbled < %20 hedefi
 - [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle

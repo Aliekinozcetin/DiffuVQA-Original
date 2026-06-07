@@ -187,12 +187,11 @@ def main():
             else:
                 for row in ids:
                     answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
-    # Special tokens ([CLS], [SEP], [PAD]) intentionally excluded from answer vocab.
-    # Including them caused model to collapse onto [SEP]/[PAD] as confidence grew,
-    # producing empty strings after decode_token truncation at [SEP].
+    # [SEP] kept in answer vocab: model uses it as sequence-end signal (trained with
+    # sep_weight=5x NLL). decode_token truncates at first [SEP] → clean short answer.
+    # [CLS] and [PAD] excluded: they carry no answer semantics and caused collapse.
     answer_vocab_set.discard(None)
     answer_vocab_set.discard(tokenizer.tokenizer.cls_token_id)
-    answer_vocab_set.discard(tokenizer.tokenizer.sep_token_id)
     answer_vocab_set.discard(tokenizer.tokenizer.pad_token_id)
     # Keep all tokens including ## wordpiece continuations — decode_token uses
     # convert_tokens_to_string which correctly merges them (col + ##on + ##oscopy

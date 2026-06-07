@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — answer_vocab'a [SEP] geri eklendi, [CLS]/[PAD] dışarıda kaldı
+
+**What:** `sample_vqa_GPU.py`: `answer_vocab_set.discard(sep_token_id)` satırı kaldırıldı. [CLS] ve [PAD] hâlâ dışarıda.
+**Why:** Önceki fix ([SEP] dahil tüm special token'ları çıkarma) garbled output'u %99.8'e çıkardı — model sequence'ı nerede keseceğini bilemedi, 32 pozisyonu rastgele doldurdu. [SEP] training'de sep_weight=5x NLL ile güçlü sinyal aldı; vocab'da olunca model onu doğru pozisyona koyar, decode_token orada keser → kısa temiz cevap. Training gerektirmez.
+
+---
+
 ## 2026-06-07 — sample_vqa_GPU: output dosyası append → write moduna alındı
 
 **What:** `sample_vqa_GPU.py`: `fout = open(out_path, 'a')` döngü içinden kaldırıldı. Döngü öncesi `open(out_path, 'w')` ile bir kez açılıyor, her batch'te `flush()` yapılıyor, döngü sonrası kapatılıyor.
