@@ -437,7 +437,12 @@ class TrainLoop:
         return state_dict
 
     def _state_dict_to_master_params(self, state_dict):
-        params = [state_dict[name] for name, _ in self.model.named_parameters()]
+        # Fall back to current model param for keys absent in checkpoint (e.g. newly
+        # added question_type_head when resuming from a pre-classifier checkpoint).
+        params = [
+            state_dict[name] if name in state_dict else param.data
+            for name, param in self.model.named_parameters()
+        ]
         if self.use_fp16:
             return make_master_params(params)
         else:
