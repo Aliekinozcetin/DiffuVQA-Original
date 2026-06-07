@@ -141,7 +141,9 @@ def main():
         checkpoint_path=args.checkpoint_path,
         gradient_clipping=args.gradient_clipping,
         eval_data=data_valid,
-        eval_interval=args.eval_interval
+        eval_interval=args.eval_interval,
+        warmup_steps=getattr(args, 'warmup_steps', 2000),
+        lr_min=getattr(args, 'lr_min', 5e-6),
     ).run_loop(args)
 
 if __name__ == "__main__":

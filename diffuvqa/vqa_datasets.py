@@ -88,8 +88,9 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
     def tokenize_function(examples):
         input_id_q = vocab_dict.tokenizer(examples['question'], padding='max_length', max_length=seq_len, truncation=True)['input_ids']
         input_id_a = vocab_dict.tokenizer(examples['answer'], padding='max_length', max_length=seq_len, truncation=True)['input_ids']
-
-        result_dict = {'input_id_q': input_id_q, 'input_id_a': input_id_a}
+        _yn_set = {'yes', 'no', 'none', 'not', 'not relevant', 'not applicable'}
+        is_closed = [1 if a.strip().lower() in _yn_set else 0 for a in examples['answer']]
+        result_dict = {'input_id_q': input_id_q, 'input_id_a': input_id_a, 'is_closed': is_closed}
 
         return result_dict
 
@@ -98,7 +99,7 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len, split):
         batched=True,
         num_proc=8,
         remove_columns=['question', 'answer'],
-        load_from_cache_file=True,
+        load_from_cache_file=False,
         desc="Running tokenizer on dataset",
     )
     print('### tokenized_datasets', tokenized_datasets)
@@ -217,6 +218,7 @@ class TextDataset(Dataset):
             out_kwargs['input_a_id'] = np.array(self.text_datasets[self.split][idx]['input_id_a'])
             out_kwargs['input_ids'] = np.array(self.text_datasets[self.split][idx]['input_ids'])
             out_kwargs['input_mask'] = np.array(self.text_datasets[self.split][idx]['input_mask'])
+            out_kwargs['is_closed'] = np.array(self.text_datasets[self.split][idx]['is_closed'], dtype=np.float32)
             out_kwargs['image_name'] = self.data_lst['image_name'][idx]
             # out_kwargs['qid'] = self.data_lst['qid'][idx]
             # out_kwargs['img_id'] = self.data_lst['img_id'][idx]

@@ -261,6 +261,10 @@ class TransformerNetModel(nn.Module):
             self.output_down_proj = nn.Sequential(nn.Linear(config.hidden_size, config.hidden_size),
                                                   nn.Tanh(), nn.Linear(config.hidden_size, self.output_dims))
 
+        # Lightweight binary head: closed-ended (yes/no) vs open-ended question classifier.
+        # Takes mean-pooled fused features → single logit (sigmoid > 0.5 = closed).
+        self.question_type_head = nn.Linear(config.hidden_size, 1)
+
     def get_embeds(self, input_ids):
         return self.word_embedding(input_ids)
 
@@ -279,6 +283,11 @@ class TransformerNetModel(nn.Module):
             return scores
         else:
             raise NotImplementedError
+
+    def classify_question(self, fused_feats):
+        """Return per-sample closed-ended logit from mean-pooled fused features."""
+        pooled = fused_feats.mean(dim=1)           # B, hidden_size
+        return self.question_type_head(pooled).squeeze(-1)  # B
 
     def get_ddpm_input(self, image, cond):
         ddpm_input, ans_emb = self.fuse(image, cond)

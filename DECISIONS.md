@@ -4,6 +4,29 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — Training + inference iyileştirmeleri: Fix3, loss weighting, cosine LR, seq_len, classifier head
+
+**What:**
+1. `sample_vqa_GPU.py` Fix3: İki ayrı YN mask — `yn_mask_bool` (SEP yok) position 0 için, `yn_mask_with_sep` (SEP dahil) position 1+ için. Model position 0'da gerçek cevap token'ı (yes/no) seçmek zorunda, position 1+'da SEP seçip decode_token kesebiliyor.
+2. `diffuvqa/gaussian_diffusion.py`: Closed-ended (yes/no) örnekler için 2x loss weight — `is_closed` flag dataset'ten geliyor, training loss'u bu örneklerde iki katına çıkarıyor.
+3. `diffuvqa/gaussian_diffusion.py` + `vqa_model.py`: Classifier head (`question_type_head = Linear(768, 1)`) eklendi — fused feature mean-pool → binary logit. Training sırasında BCE loss ile öğreniyor. Inference'ta first-word heuristic yerine OR mantığıyla kullanılıyor (classifier OR heuristic = closed).
+4. `train_util.py`: Linear decay → Cosine decay + linear warmup. Parametreler: `warmup_steps=2000`, `lr_min=5e-6`. 40k'dan sonra LR yavaşça 1e-5 → 5e-6'ya iner, erken adımlarda 0'dan linear warmup.
+5. `diffuvqa/config.json`: `seq_len` 32'de bırakıldı. Kvasir-VQA'da 30 token uzunluğuna ulaşan cevaplar var — 16'ya düşürmek bu örnekleri kesecekti.
+6. `diffuvqa/vqa_datasets.py`: `is_closed` label eklendi (answer ∈ {yes, no, none, not, not relevant, not applicable} → 1, diğerleri 0). Dataset cache devre dışı bırakıldı.
+
+**Why:**
+- Fix3: Fix2'de yn_mask tüm pozisyonlara uygulandığı için SEP hiç üretilmiyordu → decode_token 32 pozisyonu decode → avg_len 17, Y/N %0.0.
+- 2x loss weight: Y/N soruları veri setinin %48'i ama model öğrenemiyor — embedding space open-ended yanıtlara baskın. Ek ağırlık gradyan dengesini düzeltiyor.
+- Classifier head: First-word heuristic edge case'leri kaçırıyor ("what colour" sorusu ama cevap yes/no). Learned head tüm modality sinyalini (image + question) kullanıyor.
+- Cosine LR: 40k exact match zirvesine bakılırsa model 40k'dan sonra overfit. Cosine decay 40k–120k arasında LR'yi yavaşça düşürüyor.
+- seq_len=32 korundu: Kvasir-VQA'da 30-token uzunluğunda cevaplar mevcut; kesmek zararlı olurdu.
+
+**How to apply:**
+- Fix3 + classifier inference değişiklikleri: Mevcut checkpoint'lerle çalışır (`strict=False` load). Classifier henüz eğitilmemişse rastgele init → heuristic fallback devrede.
+- Loss weighting + cosine LR + classifier BCE: Sıfırdan veya 40k checkpoint'ten retraining gerektirir.
+
+---
+
 ## 2026-06-07 — Inference-side iyileştirmeler: question-type masking, empty fallback, artifact cleanup
 
 **What:**

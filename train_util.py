@@ -63,6 +63,8 @@ class TrainLoop:
             gradient_clipping=-1.,
             eval_data=None,
             eval_interval=-1,
+            warmup_steps=2000,
+            lr_min=5e-6,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -87,6 +89,8 @@ class TrainLoop:
         self.learning_steps = learning_steps
         self.gradient_clipping = gradient_clipping
 
+        self.warmup_steps = warmup_steps
+        self.lr_min = lr_min
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size
@@ -104,9 +108,7 @@ class TrainLoop:
 
         self.opt = AdamW(self.master_params, lr=self.lr, weight_decay=self.weight_decay)
         if self.resume_step:
-            frac_done = (self.step + self.resume_step) / self.learning_steps
-            lr = max(self.lr * (1 - frac_done), 0.0)
-            self.opt = AdamW(self.master_params, lr=lr, weight_decay=self.weight_decay)
+            # _anneal_lr will set the correct LR each step; start with base lr.
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint
             # being specified at the command line.
@@ -376,8 +378,16 @@ class TrainLoop:
     def _anneal_lr(self):
         if not self.learning_steps:
             return
-        frac_done = (self.step + self.resume_step) / self.learning_steps
-        lr = max(self.lr * (1 - frac_done), 0.0)
+        global_step = self.step + self.resume_step
+        if global_step < self.warmup_steps:
+            # Linear warmup: 0 → lr
+            lr = self.lr * global_step / max(1, self.warmup_steps)
+        else:
+            # Cosine decay: lr → lr_min
+            decay_steps = self.learning_steps - self.warmup_steps
+            progress = (global_step - self.warmup_steps) / max(1, decay_steps)
+            progress = min(progress, 1.0)
+            lr = self.lr_min + 0.5 * (self.lr - self.lr_min) * (1.0 + math.cos(math.pi * progress))
         for param_group in self.opt.param_groups:
             param_group["lr"] = lr
 

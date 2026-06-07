@@ -657,8 +657,10 @@ class GaussianDiffusion:
         reg_loss_type = model_kwargs.pop('reg_loss_type', 'sim')
         input_ids_x = model_kwargs.pop('input_ids').to(t.device)
         input_ids_a = model_kwargs.pop('input_a_id').to(t.device)
-        # x_start_arr = model.model.module.get_embeds(input_ids_x)
         mask = model_kwargs.pop('input_mask').to(t.device)
+        is_closed = model_kwargs.pop('is_closed', None)
+        if is_closed is not None:
+            is_closed = is_closed.to(t.device)
 
         # if mask is not None:
         #     input_mask = th.broadcast_to(mask.unsqueeze(dim=-1), x_start_mean.shape)
@@ -735,6 +737,22 @@ class GaussianDiffusion:
         )
 
         terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + terms["nll"] + decoder_nll + terms["reg"]
+
+        # 2x loss weight for closed-ended (yes/no) samples: they are %48 of data
+        # but model learns them poorly because embedding space is dominated by open answers.
+        if is_closed is not None:
+            closed_weight = 1.0 + is_closed  # 1x for open, 2x for closed
+            terms["loss"] = terms["loss"] * closed_weight
+
+        # Classifier head: BCE loss — model learns to predict is_closed from fused features.
+        # This gives a learned signal for inference-time q-type routing (replaces first-word heuristic).
+        if is_closed is not None:
+            import torch.nn.functional as _F
+            closed_logit = model.model.module.classify_question(ddpm_input_pre)  # B
+            terms["classifier_loss"] = _F.binary_cross_entropy_with_logits(
+                closed_logit, is_closed
+            )
+            terms["loss"] = terms["loss"] + terms["classifier_loss"]
 
         return terms
 

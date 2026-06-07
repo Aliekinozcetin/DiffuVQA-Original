@@ -108,7 +108,11 @@ def main():
     model, diffusion = create_model_and_diffusion(args=args)
     state_dict = torch.load(args.model_path, map_location="cuda")
     new_state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
-    model.load_state_dict(new_state_dict)
+    missing, unexpected = model.load_state_dict(new_state_dict, strict=False)
+    if missing:
+        print(f"### New params (random init): {missing}")
+    if unexpected:
+        print(f"### Unexpected keys ignored: {unexpected}")
 
     pytorch_total_params = sum(p.numel() for p in model.parameters())
     logger.log(f'### The parameter count is {pytorch_total_params}')
@@ -213,12 +217,20 @@ def main():
         _yn_token_ids.update(_ids)
     _yn_token_ids.update(special_ids)
     _yn_token_ids = {t for t in _yn_token_ids if t in answer_vocab_set and t is not None}
-    # [SEP]/[PAD]/[CLS] yn_mask'a girerse model bunları seçip boş decode üretiyor — çıkar.
-    _yn_token_ids -= special_ids
-    _yn_token_ids.discard(None)
+    # Fix3: iki ayrı mask.
+    # yn_mask_bool        → position 0 için, SEP YOK  → model gerçek cevap token'ı seçmek zorunda
+    # yn_mask_with_sep    → position 1+ için, SEP VAR → decode_token SEP'de keser → kısa temiz cevap
+    _yn_content_ids = _yn_token_ids - special_ids
+    _yn_content_ids.discard(None)
     yn_mask_bool = th.zeros(tokenizer.vocab_size, dtype=th.bool, device=th.device("cuda"))
-    yn_mask_bool[torch.tensor(sorted(_yn_token_ids), dtype=torch.long, device=th.device("cuda"))] = True
-    print(f"### YN vocab size: {int(yn_mask_bool.sum())} tokens")
+    yn_mask_bool[torch.tensor(sorted(_yn_content_ids), dtype=torch.long, device=th.device("cuda"))] = True
+
+    yn_mask_with_sep = yn_mask_bool.clone()
+    _sep_id = tokenizer.tokenizer.sep_token_id
+    if _sep_id is not None:
+        yn_mask_with_sep[_sep_id] = True
+
+    print(f"### YN vocab size: {int(yn_mask_bool.sum())} content tokens (+ SEP at pos 1+)")
 
     text_iterator = iter(all_text_data)
     image_iterator = iter(all_image_data)
@@ -233,7 +245,7 @@ def main():
         input_ids_x = cond.pop('input_ids').to(th.device("cuda"))
         input_ids_a = cond.pop('input_a_id').to(th.device("cuda"))
 
-        # Soru tipini tespit et: ilk kelimeye göre closed/open sınıfı belirle.
+        # Soru tipini tespit et: ilk kelimeye göre fallback heuristic (classifier için de sakla).
         q_first_words = []
         for q_seq in input_ids_x[:, :args.seq_len]:
             q_text = tokenizer.decode_token(q_seq.cpu())
@@ -252,7 +264,21 @@ def main():
         # print("input_ids_mask.shape: ", input_ids_mask.shape)
 
         # x_start_mean, _ = model.get_ddpm_inputs_mask(image, cond)
-        fuse_feats, _ = model.get_ddpm_input(image, cond)  
+        fuse_feats, _ = model.get_ddpm_input(image, cond)
+
+        # Classifier head: learned q-type routing (falls back to first-word heuristic
+        # if question_type_head was not trained yet — randomly initialized weights
+        # will give ~50% closed, so first-word heuristic acts as a safety override).
+        _cls_logits = model.classify_question(fuse_feats)  # B
+        _cls_closed = (torch.sigmoid(_cls_logits) > 0.5).tolist()  # list[bool]
+        # Blend: if classifier says closed OR first-word heuristic says closed → closed.
+        # During early training when classifier is random, heuristic dominates; later
+        # the classifier takes over and catches harder cases (e.g. "what colour" with yes/no ref).
+        is_closed_pred = [
+            _cls_closed[_i] or (q_first_words[_i] in CLOSED_STARTERS)
+            for _i in range(len(q_first_words))
+        ]
+
         f = torch.cat([fuse_feats, fuse_feats], dim=1)
         x_start = torch.cat([fuse_feats, input_emb], dim=1)
         # input_ids_mask = cond.pop('input_mask')
@@ -319,10 +345,14 @@ def main():
             logits = model.get_logits(sample)  # bsz, seqlen, vocab
 
             # Per-sample vocab masking: closed-ended sorular → yn_mask, open → answer_mask.
+            # Fix3: position 0 → yn_mask_bool (SEP YOK, gerçek cevap zorla)
+            #        position 1+ → yn_mask_with_sep (SEP VAR, decode_token kesebilir)
             masked_logits = logits.clone()
-            for _i, _fw in enumerate(q_first_words):
-                if _fw in CLOSED_STARTERS:
-                    masked_logits[_i, :, ~yn_mask_bool] = float('-inf')
+            for _i, _is_closed in enumerate(is_closed_pred):
+                if _is_closed:
+                    masked_logits[_i, 0, ~yn_mask_bool] = float('-inf')
+                    if masked_logits.size(1) > 1:
+                        masked_logits[_i, 1:, ~yn_mask_with_sep] = float('-inf')
                 else:
                     masked_logits[_i, :, ~answer_mask_bool] = float('-inf')
             # Fallback: tüm pozisyonlar -inf ise (vocab mask boş) ham logits kullan.
