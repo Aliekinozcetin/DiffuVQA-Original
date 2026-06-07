@@ -83,14 +83,18 @@ Metrikler Kvasir-VQA test seti üzerinden hesaplanmıştır (5886 satır, 20 sor
 **Durum:** Eğitim devam ediyor, henüz sample alınmadı
 
 ### Değişiklikler (v0.3 üzerine)
-- `notebooks/run_diffuvqa_colab.ipynb`: `TRAIN_BATCH_SIZE` 4 → 32
+- `notebooks/run_diffuvqa_colab.ipynb`: `TRAIN_BATCH_SIZE` 4 → 128, `LR` otomatik linear scaling (`1e-5 × batch/32` → `4e-5`)
+- `notebooks/run_diffuvqa_colab.ipynb`: `WARMUP_STEPS=5000` değişkeni eklendi, `--warmup_steps` CLI'a iletiliyor
+- `notebooks/run_diffuvqa_colab.ipynb`: `USE_BF16=True`, `USE_TORCH_COMPILE=True` (Triton kernel fusion, ~%25 hız)
+- `diffuvqa/config.json`: `warmup_steps` 2000 → 5000
 - `diffuvqa/vqa_datasets.py`: `num_workers` 4 → 8, `pin_memory=True`, `persistent_workers=True`
-- `train_util.py` + `train.py`: BF16 (A100 native Tensor Core) desteği eklendi
-- `train.py`: `torch.compile` desteği eklendi (isteğe bağlı, varsayılan kapalı)
+- `train_util.py`: BF16 AMP desteği (`th.autocast` + `th.amp.GradScaler`), deprecated `th.cuda.amp.GradScaler` düzeltildi
+- `train.py`: `torch.compile(mode="reduce-overhead")` desteği eklendi
 
 ### Beklenen Etki
-- GPU VRAM kullanımı %14 → ~%80
-- Effective training: batch=4 ile 3M → batch=32 ile 24M sample-exposure/750k step
+- Batch=128 ile effective training: 4 → 128, her adımda 32x fazla sample
+- LR: 1e-5 → 4e-5 (linear scaling); warmup: 2000 → 5000 adım
+- BF16 + torch.compile birlikte ~2x toplam hız artışı (A100 Tensor Core + Triton fusion)
 - Overfit başlangıcının 80k'dan çok daha geç gelmesi bekleniyor
 
 ### Bugfix'ler (versiyon artırmadı)

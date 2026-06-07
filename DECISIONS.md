@@ -4,6 +4,19 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — v0.4 güncelleme: batch=160, LR linear scaling, warmup_steps=5000
+
+**What:**
+1. `notebooks/run_diffuvqa_colab.ipynb`: `TRAIN_BATCH_SIZE` 128 → 160. `LR = 1e-5 * (TRAIN_BATCH_SIZE / 32)` zaten dinamikti — batch=160 ile LR otomatik `5e-5` oluyor.
+2. `notebooks/run_diffuvqa_colab.ipynb`: `WARMUP_STEPS = 5000` değişkeni eklendi, `--warmup_steps {WARMUP_STEPS}` CLI argümanı training komutuna eklendi.
+3. `diffuvqa/config.json`: `warmup_steps` 2000 → 5000 (CLI override olmayan durumlar için).
+
+**Why:** batch=32 ile eğitimde GPU VRAM yalnızca %22 kullanılıyordu. batch=160 ile aynı 180k adımda 5x fazla sample görülüyor. Linear scaling rule gereği LR de 5x artırılıyor (1e-5 → 5e-5). Büyük LR ile ilk adımlarda gradientler kararsız olabileceğinden warmup 2000 → 5000'e çıkarıldı.
+
+**How to apply:** Mevcut eğitimi durdur, `TRAIN_BATCH_SIZE=160` ve `WARMUP_STEPS=5000` ile sıfırdan başlat. Checkpoint uyumluluğu etkilenmiyor.
+
+---
+
 ## 2026-06-07 — Bugfix: `train.py` UnboundLocalError — `import torch._dynamo` yerel scope çakışması
 
 **What:** `train.py` `main()` içindeki `import torch._dynamo` satırı `import torch._dynamo as _dynamo` olarak değiştirildi. İçeride `torch._dynamo.config.suppress_errors = True` → `_dynamo.config.suppress_errors = True` olarak güncellendi.

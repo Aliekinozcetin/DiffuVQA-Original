@@ -96,7 +96,7 @@ class TrainLoop:
         # BF16 AMP: A100 has native BF16 Tensor Cores, 2x faster than FP32.
         # BF16 rarely needs loss scaling (wider dynamic range than FP16).
         self.bf16_scaler = (
-            th.cuda.amp.GradScaler(enabled=False)  # no scaling for BF16
+            th.amp.GradScaler('cuda', enabled=False)  # no scaling for BF16
             if use_bf16 else None
         )
         self.step = 0
