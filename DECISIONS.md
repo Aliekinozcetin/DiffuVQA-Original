@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-08 — RESUME_CHECKPOINT 40k sw=1.0 checkpoint'e set edildi
+
+**What:** `notebooks/run_diffuvqa_colab.ipynb` `RESUME_CHECKPOINT = f"{CHECKPOINT_PATH}/ema_0.9999_040000.pt"` yapıldı.
+**Why:** 40k sw=1.0 analizi: boş cevap %25.7 (sw=5'te %34'tü), F1 %3.88, temiz cevap F1 %6.40. sep_weight=1.0 doğru yönde. Garbled %63.1 beklenen — model 40k'da henüz vocabulary'yi öğreniyor. 100-120k'da garbled < %30, F1 > %5 hedefi.
+
+---
+
 ## 2026-06-07 — sep_weight 5.0 → 1.0, notebook RESUME_CHECKPOINT sıfırlandı, sıfırdan training
 
 **What:** `gaussian_diffusion.py` `_token_discrete_loss` çağrısında `sep_weight=5.0` → `sep_weight=1.0`. `notebooks/run_diffuvqa_colab.ipynb` `RESUME_CHECKPOINT = ""` yapıldı (sıfırdan eğitim için).

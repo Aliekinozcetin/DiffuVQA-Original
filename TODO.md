@@ -108,6 +108,8 @@
 - [x] 180k sampling tekrar yapıldı ([SEP] fix sonrası) — EM %0.22, boş %41.3, garbled %32.1; root cause sep_weight=5.0 idi
 - [x] sep_weight 5.0 → 1.0 — NLL %83'ü SEP'e gidiyordu, content gradient %17'ye düşüyordu (`gaussian_diffusion.py`)
 - [x] Notebook RESUME_CHECKPOINT sıfırlandı (`""`) — sep_weight=1.0 ile sıfırdan training başlatılacak
+- [x] 40k sw=1.0 analiz yapıldı — boş %25.7, F1 %3.88, garbled %63.1 (beklenen); training devam kararı alındı
+- [x] RESUME_CHECKPOINT 40k sw=1.0 checkpoint'e set edildi — 100-120k'da tekrar sampling planlanıyor
 - [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle
