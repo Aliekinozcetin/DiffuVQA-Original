@@ -4,6 +4,16 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-07 — lr 1e-5→2e-5, gradient_clipping 0.75→1.0 (fresh run)
+
+**What:** `diffuvqa/config.json`
+- `lr`: 0.00001 → 0.00002
+- `gradient_clipping`: 0.75 → 1.0
+
+**Why:** Sıfırdan başlayan eğitimde daha hızlı erken konverjans için. CIGN fix sonrası doğru conditioning sinyaliyle daha agresif öğrenme denenebilir. gradient_clipping=0.5 orijinal değer, 0.75 önceki sync değeriydi — daire çizmemek için 1.0 seçildi.
+
+---
+
 ## 2026-06-07 — pre_answer_loss gate: 150k→300k decay + 0.05 floor
 
 **What:** `train_util.py`: cosine decay gate genişletildi.
