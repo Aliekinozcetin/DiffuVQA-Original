@@ -188,10 +188,10 @@ def main():
                 for row in ids:
                     answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
     answer_vocab_set.discard(None)
-    # Exclude special tokens: model collapses to [SEP]/[PAD] embedding when they
-    # are in the answer vocab, causing decode_token to cut at [SEP] → empty string.
+    # Exclude [CLS] and [PAD] — they are not meaningful answer tokens.
+    # [SEP] is intentionally kept: decode_token uses it as a stop marker.
+    # Excluding [SEP] would cause every output to fill all 32 positions (AvgLen=32).
     for _sid in (tokenizer.tokenizer.cls_token_id,
-                 tokenizer.tokenizer.sep_token_id,
                  tokenizer.tokenizer.pad_token_id):
         answer_vocab_set.discard(_sid)
     # Filter out ## wordpiece continuation tokens — they produce merged artifacts.
