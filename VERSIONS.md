@@ -78,12 +78,13 @@ Metrikler Kvasir-VQA test seti üzerinden hesaplanmıştır (5886 satır, 20 sor
 
 ---
 
-## v0.4 — Kaynak Optimizasyonu (Beklemede)
+## v0.4 — Kaynak Optimizasyonu
 **Label:** `v0.4-resource-opt`
-**Durum:** Eğitim devam ediyor, henüz sample alınmadı
+**Klasör:** `samples/v0.4-resource-opt/`
+**Eğitim:** `TRAIN_BATCH_SIZE=96`, 180k adım (toplam ~17.3M sample-exposure)
 
 ### Değişiklikler (v0.3 üzerine)
-- `notebooks/run_diffuvqa_colab.ipynb`: `TRAIN_BATCH_SIZE` 4 → 128, `LR` otomatik linear scaling (`1e-5 × batch/32` → `4e-5`)
+- `notebooks/run_diffuvqa_colab.ipynb`: `TRAIN_BATCH_SIZE` 4 → 96, `LR` otomatik linear scaling (`1e-5 × batch/32` → `3e-5`)
 - `notebooks/run_diffuvqa_colab.ipynb`: `WARMUP_STEPS=5000` değişkeni eklendi, `--warmup_steps` CLI'a iletiliyor
 - `notebooks/run_diffuvqa_colab.ipynb`: `USE_BF16=True`, `USE_TORCH_COMPILE=True` (Triton kernel fusion, ~%25 hız)
 - `diffuvqa/config.json`: `warmup_steps` 2000 → 5000
@@ -91,11 +92,23 @@ Metrikler Kvasir-VQA test seti üzerinden hesaplanmıştır (5886 satır, 20 sor
 - `train_util.py`: BF16 AMP desteği (`th.autocast` + `th.amp.GradScaler`), deprecated `th.cuda.amp.GradScaler` düzeltildi
 - `train.py`: `torch.compile(mode="reduce-overhead")` desteği eklendi
 
-### Beklenen Etki
-- Batch=128 ile effective training: 4 → 128, her adımda 32x fazla sample
-- LR: 1e-5 → 4e-5 (linear scaling); warmup: 2000 → 5000 adım
-- BF16 + torch.compile birlikte ~2x toplam hız artışı (A100 Tensor Core + Triton fusion)
-- Overfit başlangıcının 80k'dan çok daha geç gelmesi bekleniyor
+### Metrikler
+| Checkpoint | Exact | Y/N | OE | Empty | Avg Len | BLEU-1 | F1 | METEOR |
+|---|---|---|---|---|---|---|---|---|
+| 10k | 5.33% | 9.11% | 1.75% | **0%** | 2.94 | 10.33% | 8.64% | 4.59% |
+| 20k | **6.05%** | **10.65%** | 1.69% | **0%** | 3.23 | **10.46%** | **9.42%** | **5.27%** |
+
+### v0.3 → v0.4 Kazanımları (80k karşılaştırması)
+| Metrik | v0.3 80k | v0.4 20k | Fark |
+|---|---|---|---|
+| Exact | 1.87% | 6.05% | **+4.18 pp (3.2x)** |
+| Y/N | 5.01% | 10.65% | **+5.64 pp (2.1x)** |
+| OE | 1.01% | 1.69% | +0.68 pp |
+| BLEU-1 | 7.37% | 10.46% | **+3.09 pp** |
+| F1 | 10.02% | 9.42% | -0.60 pp |
+| METEOR | 8.62% | 5.27% | -3.35 pp |
+
+> Not: v0.4 20k adımda v0.3'ün 80k peak'ini birçok metrikte geçiyor — batch=96 ile her adımda 24x fazla data görülüyor (96/4=24x).
 
 ### Bugfix'ler (versiyon artırmadı)
 | Tarih | Dosya | Açıklama |
