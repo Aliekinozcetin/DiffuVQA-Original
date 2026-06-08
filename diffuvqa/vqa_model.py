@@ -302,7 +302,7 @@ class TransformerNetModel(nn.Module):
         :return: an [N x C x ...] Tensor of outputs.
         """
 
-        emb_t = self.time_embed(timestep_embedding(timesteps, self.hidden_t_dim))
+        emb_t = self.time_embed(timestep_embedding(timesteps, self.hidden_t_dim).clone())
 
         if self.input_dims != self.hidden_size:
             emb_x = self.input_up_proj(x)
