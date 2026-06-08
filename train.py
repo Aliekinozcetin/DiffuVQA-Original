@@ -116,8 +116,8 @@ def main():
     if getattr(args, 'use_torch_compile', False):
         import torch._dynamo as _dynamo
         _dynamo.config.suppress_errors = True
-        model = torch.compile(model, mode="reduce-overhead")
-        print("### torch.compile enabled (reduce-overhead mode)")
+        model = torch.compile(model, mode="default")
+        print("### torch.compile enabled (default mode)")
 
     pytorch_total_params = sum(p.numel() for p in model.parameters())
 

@@ -301,6 +301,7 @@ class TrainLoop:
             }
             micro_cond['pre_answer_weight'] = pre_answer_weight
             t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
+            torch.compiler.cudagraph_mark_step_begin()
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
                 self.ddp_model,
