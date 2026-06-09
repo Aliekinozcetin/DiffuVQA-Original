@@ -4,6 +4,20 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-08 — sep_weight=2.0, seq_len=16, subword filtering — sıfırdan training
+
+**What:**
+1. `gaussian_diffusion.py`: `sep_weight=1.0` → `sep_weight=2.0` (`terms["nll"]` çağrısında)
+2. `config.json`: `seq_len: 32` → `seq_len: 16`; notebook `SEQ_LEN=16`
+3. `sample_vqa_GPU.py`: `answer_vocab_ids`'ten `##` subword token'ları filtrelendi
+
+**Why:**
+- **sep_weight=2**: sw=1'de SEP payı ~%25 → over-generation (100k'da uzunluk 6.9, ref 2.9). sw=2'de SEP payı ~%40 → içerik ile denge. Matematiksel: 3 content + 1 SEP → 3×1+1×2=5 → SEP 2/5=%40.
+- **seq_len=16**: Referans cevapların %61.8'i 1 token, %76.3'ü ≤3 token. 32 pozisyonda model SEP'i doğru yere koyamıyor. seq_len=16'da arama uzayı yarıya iner, model SEP konumunu çok daha hızlı öğrenir. Cevapların %95+'ı 16 token'a sığıyor.
+- **subword filtering**: Garbled çıktının kaynağı `##` tokenlar — colonoscopy→co+##os+##co+##py, gastroscopy→gas+##tro+##sco+##py, ulcerative→ul+##cera+##tive. Bu parçalar vocab'dayken model bunları ayrı üretiyor. Decode'da filtreleme nearest whole-word embedding'e snap eder.
+
+---
+
 ## 2026-06-08 — RESUME_CHECKPOINT 40k sw=1.0 checkpoint'e set edildi
 
 **What:** `notebooks/run_diffuvqa_colab.ipynb` `RESUME_CHECKPOINT = f"{CHECKPOINT_PATH}/ema_0.9999_040000.pt"` yapıldı.

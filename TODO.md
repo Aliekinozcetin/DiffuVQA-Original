@@ -111,5 +111,11 @@
 - [x] 40k sw=1.0 analiz yapıldı — boş %25.7, F1 %3.88, garbled %63.1 (beklenen); training devam kararı alındı
 - [x] RESUME_CHECKPOINT 40k sw=1.0 checkpoint'e set edildi — 100-120k'da tekrar sampling planlanıyor
 - [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
+- [x] 100k sw=1.0 analiz yapıldı — over-generation (uzunluk 6.9 vs ref 2.9), garbled %68.4, subword fragment kaynağı tespit edildi
+- [x] sep_weight 1.0 → 2.0 — SEP payı %25→%40, over-generation ile collapse arasında denge (`gaussian_diffusion.py`)
+- [x] seq_len 32 → 16 — cevapların %76.3'ü ≤3 token, SEP arama uzayı yarıya indi (`config.json`, notebook)
+- [x] subword filtering eklendi — `##` ile başlayan token'lar answer_vocab_ids'ten çıkarıldı (`sample_vqa_GPU.py`)
+- [ ] Sıfırdan training başlat (sep_weight=2, seq_len=16) — 40k sanity check: boş < %20, garbled < %40
+- [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle

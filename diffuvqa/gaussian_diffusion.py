@@ -723,9 +723,9 @@ class GaussianDiffusion:
         decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
-        # sep_weight=1.0: SEP ve content token'lar eşit ağırlıkta.
-        # 5x weight NLL'nin %83'ünü SEP'e harcıyordu → content gradient %17'ye düşüyordu → EM kötüleşiyordu.
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
+        # sep_weight=2.0: SEP payı ~%40 — sw=1(~%25) çok az (over-gen), sw=5(~%83) çok fazla (collapse).
+        # Ort 3 content token + 1 SEP → 3×1 + 1×2 = 5 → SEP payı 2/5 = %40, content 3/5 = %60.
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=2.0)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
         target_answer = x_start_mean.detach()

@@ -187,16 +187,20 @@ def main():
             else:
                 for row in ids:
                     answer_vocab_set.update(row.tolist() if hasattr(row, 'tolist') else row)
-    # [SEP] kept in answer vocab: model uses it as sequence-end signal (trained with
-    # sep_weight=5x NLL). decode_token truncates at first [SEP] → clean short answer.
-    # [CLS] and [PAD] excluded: they carry no answer semantics and caused collapse.
+    # [SEP] in vocab: sequence-end signal; decode_token truncates at first [SEP].
+    # [CLS] and [PAD] excluded: no answer semantics, caused collapse.
+    # ## subword tokens excluded: model generates colonoscopy subparts (co, ##os, ##py)
+    # as separate tokens → garbled output. Filtering forces snap to nearest whole-word
+    # embedding; training used whole-answer NLL so this is consistent.
     answer_vocab_set.discard(None)
     answer_vocab_set.discard(tokenizer.tokenizer.cls_token_id)
     answer_vocab_set.discard(tokenizer.tokenizer.pad_token_id)
-    # Keep all tokens including ## wordpiece continuations — decode_token uses
-    # convert_tokens_to_string which correctly merges them (col + ##on + ##oscopy
-    # → colonoscopy). Filtering ## tokens would break multi-subword answers.
-    answer_vocab_ids = torch.tensor(sorted(tid for tid in answer_vocab_set if tid is not None),
+    answer_vocab_set = {
+        tid for tid in answer_vocab_set
+        if tid is not None and
+        not tokenizer.tokenizer.convert_ids_to_tokens(tid).startswith('##')
+    }
+    answer_vocab_ids = torch.tensor(sorted(answer_vocab_set),
                                     dtype=torch.long, device=th.device("cuda"))
     print(f"### Answer vocabulary size: {len(answer_vocab_ids)} / {tokenizer.vocab_size} tokens")
 
