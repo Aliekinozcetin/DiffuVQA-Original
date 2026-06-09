@@ -8,7 +8,7 @@
   "eval_interval": 5000,
   "valid": true,
   "ema_rate": "0.9999",
-  "resume_checkpoint": "none",
+  "resume_checkpoint": "ema_0.9999_080000.pt",
   "schedule_sampler": "lossaware",
   "diffusion_steps": 2500,
   "noise_schedule": "sqrt",

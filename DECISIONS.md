@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-10 — RESUME_CHECKPOINT 80k'ya set edildi
+
+**What:** `config.json` ve notebook `RESUME_CHECKPOINT = ema_0.9999_080000.pt` yapıldı.
+**Why:** 80k analizi: garbled %0 (content-weighted MSE çalışıyor), F1 %4.96 (tüm zamanların en yükseği). Decode-time clipping analiz edildi — EM artarken F1 düşüyor, model henüz doğru ilk token'ı üretemiyor, clipping semptom tedavisi. Training'e 80k'dan devam kararı alındı.
+
+---
+
 ## 2026-06-08 — Content-weighted MSE, tT_loss mask, reg_loss_type=len
 
 **What:**

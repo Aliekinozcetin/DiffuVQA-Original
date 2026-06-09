@@ -118,7 +118,9 @@
 - [x] Content-weighted MSE eklendi (5x content, 1x padding) — loss-EM kopukluğunun kök sebebi (`gaussian_diffusion.py`)
 - [x] t0_loss ve tT_loss'a answer_mask uygulandı — padding bias'ın iki ek kaynağı kaldırıldı (`gaussian_diffusion.py`)
 - [x] reg_loss_type='len' aktif edildi — over-generation penalizasyonu, kodda mevcuttu ama hiç kullanılmıyordu (notebook)
-- [ ] Sıfırdan training başlat (content-weighted MSE + sep_weight=2 + reg_loss=len) — 40k sanity check: boş < %20, garbled < %40
+- [x] 80k analiz yapıldı — garbled %0, F1 %4.96 (en yüksek); decode-time clipping test edildi, semptom tedavisi olduğu görüldü
+- [x] RESUME_CHECKPOINT 80k'ya set edildi — training 80k'dan devam edecek
+- [ ] 160k-200k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle
