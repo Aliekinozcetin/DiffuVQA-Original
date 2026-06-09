@@ -4,6 +4,19 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-08 — Content-weighted MSE, tT_loss mask, reg_loss_type=len
+
+**What:**
+1. `gaussian_diffusion.py`: MSE loss'a content-weight eklendi — answer content 5x, question+padding 1x. t0_loss'a aynı mask uygulandı. tT_loss'a answer_mask uygulandı (padding bias kaldırıldı).
+2. Notebook train komutu: `--reg_loss_type len` eklendi — uzunluk regularizasyonu aktif edildi (lambda_reg=0.03).
+
+**Why:**
+- MSE'nin %87.5'i padding'den geliyordu (ort cevap 3 token, seq_len=32 → 29 pozisyon boş). Model padding'i optimize edince loss düşüyor ama content token'ları yanlış kalıyor → loss-EM kopukluğu. 5x content weight ile gradient enerjisin büyük kısmı cevap token'larına gider.
+- t0_loss ve tT_loss padding dahil hesaplanıyordu → aynı bias üçüncü ve dördüncü kaynak. Her ikisine de mask uygulandı.
+- reg_loss_type='len' kodda mevcuttu ama hiç aktif edilmemişti. Model tahmin edilen cevap uzunluğunu referansa karşı penalize eder → over-generation (6.3 kelime, ref 2.9) azalır. t < T/2 adımlarında aktif.
+
+---
+
 ## 2026-06-08 — sep_weight=2.0, seq_len=16, subword filtering — sıfırdan training
 
 **What:**

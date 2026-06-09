@@ -697,28 +697,34 @@ class GaussianDiffusion:
         model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
 
         assert model_output.shape == target.shape == cond_x_start.shape
-        terms["mse"] = mean_flat((target - model_output) ** 2)
-        # terms["x_mse"] = mean_flat((x_start - model_output[:, model_output.size(1)//2:, :]) ** 2)
-        # terms["cond_mse"] = mean_flat(((ddpm_input_pre - model_output[:, :model_output.size(1)//2, :]) ** 2))
+
+        answer_mask = (input_ids_a != 0).float()  # (B, seq_len) -- ignore padding tokens
+
+        # Content-weighted MSE: answer content positions 5x, question+padding 1x.
+        # Without this, ~87.5% of MSE gradient came from padding (avg answer=3 tok, seq_len=32).
+        # full_weight shape: (B, 2*seq_len, 1) — question half all 1x, answer half content=5x/pad=1x.
+        content_weight = 5.0
+        answer_position_weights = answer_mask * (content_weight - 1.0) + 1.0  # (B, seq_len)
+        question_weights = torch.ones_like(answer_position_weights)            # (B, seq_len)
+        full_weight = torch.cat([question_weights, answer_position_weights], dim=1).unsqueeze(-1)  # (B, 2*seq_len, 1)
+        terms["mse"] = mean_flat((target - model_output) ** 2 * full_weight)
 
         # pre_answer_loss anchors the CVAE branch early in training.
         # Gate it out after step 150k: at convergence it is near-zero and contributes
         # negligible gradient; if embedding space drifts it can spike and corrupt gradients.
         pre_answer_weight = model_kwargs.pop('pre_answer_weight', 1.0)
         pre_answer_loss = pre_answer_weight * mean_flat((ans_emb_pre - ans_emb) ** 2)
-        # cosine_similarity_loss = mean_flat(1 - F.cosine_similarity(ans_emb_pre, ans_emb, dim=-1))
 
         cond_model_out_x_start = self._x0_helper(model_output, x_t, t)['pred_xstart']  # predicted_xstart = model_output
         t0_mask = (t == 0)
-        t0_loss = mean_flat((cond_x_start_mean - cond_model_out_x_start) ** 2)
-        # t0_loss = mean_flat((x_start_mean - cond_model_out_x_start[:, model_output.size(1)//2:, :]) ** 2)
+        # t0_loss: same content-weighted MSE so t=0 override is consistent with main MSE.
+        t0_loss = mean_flat((cond_x_start_mean - cond_model_out_x_start) ** 2 * full_weight)
         terms["mse"] = th.where(t0_mask, t0_loss, terms["mse"])
-        # terms["mse"] = terms["x_mse"] + terms["cond_mse"]
-        # tT_mask = (t == self.num_timesteps - 1)
-        out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
-        tT_loss = mean_flat(out_mean ** 2)
 
-        answer_mask = (input_ids_a != 0).float()  # (B, seq_len) -- ignore padding tokens
+        out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
+        # tT_loss: apply answer_mask so padding positions don't contribute padding bias.
+        out_mean_answer = out_mean * answer_mask.unsqueeze(-1)
+        tT_loss = mean_flat(out_mean_answer ** 2)
         # x_start is anchored clean — SEP signal here is trivial, no special weight needed
         decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
 

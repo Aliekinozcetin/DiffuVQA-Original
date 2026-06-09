@@ -115,7 +115,10 @@
 - [x] sep_weight 1.0 → 2.0 — SEP payı %25→%40, over-generation ile collapse arasında denge (`gaussian_diffusion.py`)
 - [x] seq_len 32 → 16 — cevapların %76.3'ü ≤3 token, SEP arama uzayı yarıya indi (`config.json`, notebook)
 - [x] subword filtering eklendi — `##` ile başlayan token'lar answer_vocab_ids'ten çıkarıldı (`sample_vqa_GPU.py`)
-- [ ] Sıfırdan training başlat (sep_weight=2, seq_len=16) — 40k sanity check: boş < %20, garbled < %40
+- [x] Content-weighted MSE eklendi (5x content, 1x padding) — loss-EM kopukluğunun kök sebebi (`gaussian_diffusion.py`)
+- [x] t0_loss ve tT_loss'a answer_mask uygulandı — padding bias'ın iki ek kaynağı kaldırıldı (`gaussian_diffusion.py`)
+- [x] reg_loss_type='len' aktif edildi — over-generation penalizasyonu, kodda mevcuttu ama hiç kullanılmıyordu (notebook)
+- [ ] Sıfırdan training başlat (content-weighted MSE + sep_weight=2 + reg_loss=len) — 40k sanity check: boş < %20, garbled < %40
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle
