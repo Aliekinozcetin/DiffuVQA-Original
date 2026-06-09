@@ -113,7 +113,7 @@
 - [x] `train_util.py` `run_loop`'una tqdm progress bar eklendi — `loss=X.XXXX` postfix, satır satır print kaldırıldı
 - [x] 100k sw=1.0 analiz yapıldı — over-generation (uzunluk 6.9 vs ref 2.9), garbled %68.4, subword fragment kaynağı tespit edildi
 - [x] sep_weight 1.0 → 2.0 — SEP payı %25→%40, over-generation ile collapse arasında denge (`gaussian_diffusion.py`)
-- [x] seq_len 32 → 16 — cevapların %76.3'ü ≤3 token, SEP arama uzayı yarıya indi (`config.json`, notebook)
+- [x] seq_len 32 → 16 denendi — image_MLP=nn.Linear(145,32) boyut uyumsuzluğu, GERİ ALINDI → seq_len=32 kaldı
 - [x] subword filtering eklendi — `##` ile başlayan token'lar answer_vocab_ids'ten çıkarıldı (`sample_vqa_GPU.py`)
 - [x] Content-weighted MSE eklendi (5x content, 1x padding) — loss-EM kopukluğunun kök sebebi (`gaussian_diffusion.py`)
 - [x] t0_loss ve tT_loss'a answer_mask uygulandı — padding bias'ın iki ek kaynağı kaldırıldı (`gaussian_diffusion.py`)

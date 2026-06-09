@@ -26,7 +26,7 @@
   "image_resolution": 384,
   "model_path": "diffuvqa/config/ema_0.9999_125000.pt",
   "input_dims": 128,
-  "seq_len": 16,
+  "seq_len": 32,
   "hidden_t_dim": 768,
   "hidden_v_dim": 768,
   "hidden_dim": 768,
