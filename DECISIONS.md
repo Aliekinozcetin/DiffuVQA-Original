@@ -4,6 +4,22 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-09 — Soru tipi yönlendirici eklendi: Y/N bypass + OE alt-tip vocab daralması
+
+**What:**
+1. `diffuvqa/utils/question_classifier.py` (yeni dosya): `classify_question(text)` fonksiyonu — yardımcı fiille başlayan sorular `yn`, geri kalanlar `oe` olarak sınıflandırılıyor. OE alt tipler: `color`, `number`, `location`, `other`. `build_subtype_vocabs(answer_vocab_ids, tokenizer, sep_id)` fonksiyonu — cevap vocab'ı tematik gruplara (renk/sayı/lokasyon) ayırıyor.
+2. `sample_vqa_GPU.py`:
+   - Import eklendi: `classify_question`, `build_subtype_vocabs`
+   - `answer_vocab_ids` kurulumundan sonra bir kez hesaplanıyor: `yes_id`, `no_id`, `subtype_vocabs`
+   - Kazanan seçim döngüsü 3 dala ayrıldı:
+     - `yn` → diffusion çıktısı yok sayılıyor; `logits[:, yes_id]` vs `logits[:, no_id]` max karşılaştırmasıyla "yes"/"no" seçiliyor
+     - `oe` + bilinen alt tip → son pass logit'leri alt-tip vocab'a daraltılarak yeniden decode ediliyor
+     - `oe other` → mevcut majority vote değişmeden kalıyor
+
+**Why:** Diffusion modeli Y/N sorularını iyi cevaplayamıyor — 30 522 tokenlık rekabette "yes"/"no" kaybolup gidiyor. Sınıflandırma olmadan YN% ~0.6% (1000 sorudan ~6 doğru). Basit yardımcı fiil tespiti + logit karşılaştırması ile YN% ~30–60%'e çıkması bekleniyor, herhangi bir yeniden eğitim gerektirmiyor. Renk/sayı/lokasyon sorularında OE alt-tip daralması aynı prensibi uyguluyor: "what color" sorusuna "red"/"blue"/"gray" havuzundan seçim yapılıyor. Diffusion döngüsüne, rounding.py'ye ve eğitim koduna hiç dokunulmadı — tamamen inference-time değişiklik.
+
+---
+
 ## 2026-06-07 — lr 1e-5→2e-5, gradient_clipping 0.75→1.0 (fresh run)
 
 **What:** `diffuvqa/config.json`
