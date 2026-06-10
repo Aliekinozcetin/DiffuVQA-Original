@@ -563,14 +563,10 @@ class GaussianDiffusion:
         reshaped_x_t = x_t
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
 
-        # Vocab restriction: mask non-answer tokens to -inf so NLL is computed over the
-        # same ~600-token subset used at inference. Without this, the model distributes
-        # probability mass over all 30522 tokens during training; when inference restricts
-        # to ~600, separator tokens (";", "-") dominate because they had high prior.
-        if answer_vocab_ids is not None:
-            vocab_mask = th.ones(logits.size(-1), dtype=th.bool, device=logits.device)
-            vocab_mask[answer_vocab_ids] = False
-            logits = logits.masked_fill(vocab_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+        # answer_vocab_ids is intentionally NOT used to mask training logits.
+        # Ground-truth input_ids contain PAD/SEP which may not be in answer_vocab_ids;
+        # masking them to -inf produces nan loss. Vocab restriction belongs at inference
+        # (argmax decoding), not at training NLL computation.
 
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
