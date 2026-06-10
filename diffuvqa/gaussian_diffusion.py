@@ -553,15 +553,25 @@ class GaussianDiffusion:
                 x_start_mean + std * noise
         )
 
-    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None, sep_weight=1.0):
+    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None, sep_weight=1.0, answer_vocab_ids=None):
         '''
         the loss of -log p(w|z_0)
-        :param x_start_mean: word embedding
-        :param sep_weight: multiplier for [SEP] token loss (use 5.0 for model-prediction path, 1.0 for x_start path)
-        :return: x_0
+        :param sep_weight: multiplier for [SEP] token loss
+        :param answer_vocab_ids: if provided, mask logits to this vocab subset — matches inference restriction
+        :return: per-sample NLL scalar
         '''
         reshaped_x_t = x_t
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
+
+        # Vocab restriction: mask non-answer tokens to -inf so NLL is computed over the
+        # same ~600-token subset used at inference. Without this, the model distributes
+        # probability mass over all 30522 tokens during training; when inference restricts
+        # to ~600, separator tokens (";", "-") dominate because they had high prior.
+        if answer_vocab_ids is not None:
+            vocab_mask = th.ones(logits.size(-1), dtype=th.bool, device=logits.device)
+            vocab_mask[answer_vocab_ids] = False
+            logits = logits.masked_fill(vocab_mask.unsqueeze(0).unsqueeze(0), float('-inf'))
+
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
 
@@ -655,6 +665,7 @@ class GaussianDiffusion:
         # x_start_mean, _ = model.model.module.get_ddpm_inputs_mask(image, model_kwargs)
         assert 'input_ids' in model_kwargs
         reg_loss_type = model_kwargs.pop('reg_loss_type', 'sim')
+        answer_vocab_ids = model_kwargs.pop('answer_vocab_ids', None)
         input_ids_x = model_kwargs.pop('input_ids').to(t.device)
         input_ids_a = model_kwargs.pop('input_a_id').to(t.device)
         # x_start_arr = model.model.module.get_embeds(input_ids_x)
@@ -726,12 +737,12 @@ class GaussianDiffusion:
         out_mean_answer = out_mean * answer_mask.unsqueeze(-1)
         tT_loss = mean_flat(out_mean_answer ** 2)
         # x_start is anchored clean — SEP signal here is trivial, no special weight needed
-        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
+        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0, answer_vocab_ids=answer_vocab_ids)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
         # sep_weight=2.0: SEP payı ~%40 — sw=1(~%25) çok az (over-gen), sw=5(~%83) çok fazla (collapse).
         # Ort 3 content token + 1 SEP → 3×1 + 1×2 = 5 → SEP payı 2/5 = %40, content 3/5 = %60.
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=2.0)
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=2.0, answer_vocab_ids=answer_vocab_ids)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
         target_answer = x_start_mean.detach()

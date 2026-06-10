@@ -4,6 +4,18 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-10 — Training-inference vocab mismatch fix — sıfırdan training
+
+**What:**
+1. `gaussian_diffusion.py` `_token_discrete_loss`'a `answer_vocab_ids` parametresi eklendi. Logits, inference'daki gibi ~600-token answer vocab'a maskeleniyor. Her iki NLL çağrısına da (`decoder_nll` + `terms["nll"]`) uygulandı.
+2. `train.py`'de `train.jsonl`'den `answer_vocab_ids` hesaplanıyor (`##` subword'ler + CLS + PAD hariç), `TrainLoop`'a geçiliyor.
+3. `train_util.py` `TrainLoop`'a `answer_vocab_ids` parametresi eklendi; `forward_backward` ve `forward_only`'de her microbatch'e `model_kwargs`'a enjekte ediliyor.
+4. `RESUME_CHECKPOINT=""` — mevcut checkpointler geçersiz, sıfırdan training.
+
+**Why:** 300k training sonrası EM %0.17. Dolu cevapların %64'ü ";" veya "-" ile başlıyor. Root cause: training NLL 30522 token üzerinden, inference ~600 token kısıtlı. Model training'de olasılık kütlesini tüm vocab'a yayıyor; inference'da kesince separator token'ları (yüksek prior) dominant oluyor. Fix ile training ve inference aynı vocab baskısı altında — model 600 token arasında "yes" vs "no" ayrımını öğrenmek zorunda.
+
+---
+
 ## 2026-06-10 — RESUME_CHECKPOINT 80k'ya set edildi
 
 **What:** `config.json` ve notebook `RESUME_CHECKPOINT = ema_0.9999_080000.pt` yapıldı.

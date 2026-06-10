@@ -120,6 +120,12 @@
 - [x] reg_loss_type='len' aktif edildi — over-generation penalizasyonu, kodda mevcuttu ama hiç kullanılmıyordu (notebook)
 - [x] 80k analiz yapıldı — garbled %0, F1 %4.96 (en yüksek); decode-time clipping test edildi, semptom tedavisi olduğu görüldü
 - [x] RESUME_CHECKPOINT 80k'ya set edildi — training 80k'dan devam edecek
+- [x] Training-inference vocab mismatch tespit edildi — 300k sonrası separator collapse root cause
+- [x] `_token_discrete_loss`'a answer_vocab_ids maskeleme eklendi (`gaussian_diffusion.py`)
+- [x] `train.py`'de answer_vocab_ids hesaplanıp TrainLoop'a geçiliyor
+- [x] `train_util.py` forward_backward + forward_only'e answer_vocab_ids enjeksiyonu
+- [x] RESUME_CHECKPOINT sıfırlandı — vocab mismatch fix ile sıfırdan training
+- [ ] 40k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
 - [ ] 160k-200k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula

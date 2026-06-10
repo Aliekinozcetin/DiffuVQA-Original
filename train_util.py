@@ -63,7 +63,9 @@ class TrainLoop:
             gradient_clipping=-1.,
             eval_data=None,
             eval_interval=-1,
+            answer_vocab_ids=None,
     ):
+        self.answer_vocab_ids = answer_vocab_ids
         self.model = model
         self.diffusion = diffusion
         self.data = data
@@ -273,6 +275,8 @@ class TrainLoop:
                     k: v[i: i + self.microbatch].to(dist_util.dev())
                     for k, v in cond.items()
                 }
+                if self.answer_vocab_ids is not None:
+                    micro_cond['answer_vocab_ids'] = self.answer_vocab_ids.to(dist_util.dev())
                 t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
                 compute_losses = functools.partial(
                     self.diffusion.training_losses,
@@ -303,6 +307,8 @@ class TrainLoop:
                 for k, v in cond.items()
             }
             micro_cond['pre_answer_weight'] = pre_answer_weight
+            if self.answer_vocab_ids is not None:
+                micro_cond['answer_vocab_ids'] = self.answer_vocab_ids.to(dist_util.dev())
             t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
