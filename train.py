@@ -66,7 +66,7 @@ def main():
                     return int(r.get('step', 0))
                 except (ValueError, TypeError):
                     return 0
-            kept = [r for r in rows if _step_val(r) <= resume_step]
+            kept = [r for r in rows if 0 < _step_val(r) <= resume_step]
             if len(kept) < len(rows):
                 fieldnames = [k for k in (rows[0].keys() if rows else []) if k is not None]
                 cleaned = [{k: v for k, v in r.items() if k in fieldnames} for r in kept]
@@ -76,7 +76,8 @@ def main():
                     writer.writerows(cleaned)
                 _trim_msg = f"### Trimmed progress.csv to step {resume_step} ({len(rows) - len(kept)} rows removed)"
 
-    logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"], append_csv=is_resume)
+    logger.configure(dir=args.checkpoint_path, format_strs=["log", "csv"], append_csv=is_resume,
+                     eval_interval=getattr(args, 'eval_interval', 0))
     if _trim_msg:
         logger.log(_trim_msg)
 

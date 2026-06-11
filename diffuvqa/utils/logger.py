@@ -3,6 +3,7 @@ Logger copied from OpenAI baselines to avoid extra RL-based dependencies:
 https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/logger.py
 """
 
+import csv as _csv_module
 import os
 import sys
 import shutil
@@ -155,6 +156,70 @@ class CSVOutputFormat(KVWriter):
         self.file.close()
 
 
+class PositionalCSVOutputFormat(KVWriter):
+    """
+    CSV writer where row position = step // eval_interval.
+    Guarantees one row per eval step with train+eval metrics merged.
+    On resume, existing rows are reloaded and new writes overwrite the
+    correct row rather than appending — so duplicate rows cannot appear.
+    """
+
+    def __init__(self, filename, eval_interval, append=False):
+        self.filename = filename
+        self.eval_interval = max(1, eval_interval)
+        self.keys = []        # ordered column names
+        self.rows = {}        # row_idx (int) -> {col: str}
+
+        if append and os.path.exists(filename):
+            try:
+                with open(filename, 'r', newline='') as f:
+                    reader = _csv_module.DictReader(f)
+                    if reader.fieldnames:
+                        self.keys = [k for k in reader.fieldnames if k]
+                    for row in reader:
+                        step_str = (row.get('step') or '').strip()
+                        try:
+                            step = int(float(step_str)) if step_str else 0
+                        except (ValueError, TypeError):
+                            step = 0
+                        if step > 0:
+                            idx = step // self.eval_interval
+                            self.rows[idx] = {k: v for k, v in row.items() if k}
+            except Exception:
+                pass  # corrupt CSV — start fresh
+
+    def writekvs(self, kvs):
+        # Update column list (keep sorted for stable output)
+        new_keys = sorted(k for k in kvs if k not in self.keys)
+        self.keys.extend(new_keys)
+
+        # Determine positional row index from step
+        step_str = str(kvs.get('step', '') or '')
+        try:
+            step = int(float(step_str)) if step_str else 0
+        except (ValueError, TypeError):
+            step = 0
+        idx = step // self.eval_interval if step > 0 else (max(self.rows) + 1 if self.rows else 0)
+
+        # Merge kvs into row — train metrics + eval metrics land in same row
+        if idx not in self.rows:
+            self.rows[idx] = {}
+        for k, v in kvs.items():
+            self.rows[idx][k] = '' if v is None else str(v)
+
+        self._rewrite()
+
+    def _rewrite(self):
+        with open(self.filename, 'w', newline='') as f:
+            writer = _csv_module.DictWriter(f, fieldnames=self.keys, extrasaction='ignore')
+            writer.writeheader()
+            for idx in sorted(self.rows):
+                writer.writerow({k: self.rows[idx].get(k, '') for k in self.keys})
+
+    def close(self):
+        self._rewrite()
+
+
 class TensorBoardOutputFormat(KVWriter):
     """
     Dumps key/value pairs into TensorBoard's numeric format.
@@ -196,7 +261,7 @@ class TensorBoardOutputFormat(KVWriter):
             self.writer = None
 
 
-def make_output_format(format, ev_dir, log_suffix="", append_csv=False):
+def make_output_format(format, ev_dir, log_suffix="", append_csv=False, eval_interval=0):
     os.makedirs(ev_dir, exist_ok=True)
     if format == "stdout":
         return HumanOutputFormat(sys.stdout)
@@ -205,7 +270,10 @@ def make_output_format(format, ev_dir, log_suffix="", append_csv=False):
     elif format == "json":
         return JSONOutputFormat(osp.join(ev_dir, "progress%s.json" % log_suffix))
     elif format == "csv":
-        return CSVOutputFormat(osp.join(ev_dir, "progress%s.csv" % log_suffix), append=append_csv)
+        path = osp.join(ev_dir, "progress%s.csv" % log_suffix)
+        if eval_interval > 0:
+            return PositionalCSVOutputFormat(path, eval_interval, append=append_csv)
+        return CSVOutputFormat(path, append=append_csv)
     elif format == "tensorboard":
         return TensorBoardOutputFormat(osp.join(ev_dir, "tb%s" % log_suffix))
     else:
@@ -447,11 +515,12 @@ def mpi_weighted_mean(comm, local_name2valcount):
         return {}
 
 
-def configure(dir=None, format_strs=None, comm=None, log_suffix="", append_csv=False):
+def configure(dir=None, format_strs=None, comm=None, log_suffix="", append_csv=False, eval_interval=0):
     """
     If comm is provided, average all numerical stats across that comm.
     append_csv=True: keep existing progress.csv content (resume training).
     append_csv=False (default): overwrite progress.csv (fresh training start).
+    eval_interval>0: use positional CSV writer (row = step // eval_interval).
     """
     if dir is None:
         dir = os.getenv("OPENAI_LOGDIR")
@@ -474,7 +543,7 @@ def configure(dir=None, format_strs=None, comm=None, log_suffix="", append_csv=F
         else:
             format_strs = os.getenv("OPENAI_LOG_FORMAT_MPI", "log").split(",")
     format_strs = filter(None, format_strs)
-    output_formats = [make_output_format(f, dir, log_suffix, append_csv=append_csv) for f in format_strs]
+    output_formats = [make_output_format(f, dir, log_suffix, append_csv=append_csv, eval_interval=eval_interval) for f in format_strs]
 
     Logger.CURRENT = Logger(dir=dir, output_formats=output_formats, comm=comm)
     if output_formats:

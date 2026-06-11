@@ -233,11 +233,11 @@ class TrainLoop:
                     break
                 self.run_step(image, cond)
                 global_step = self.step + self.resume_step
-                if self.step > 0 and global_step % self.log_interval == 0:
-                    logger.dumpkvs()
-                if self.eval_data is not None and self.step > 0 and global_step % self.eval_interval == 0:
-                    batch_eval, cond_eval = next(self.eval_data)
-                    self.forward_only(batch_eval, cond_eval)
+                if self.step > 0 and global_step % self.eval_interval == 0:
+                    # Run eval then dump train+eval metrics together → one row per eval step.
+                    if self.eval_data is not None:
+                        batch_eval, cond_eval = next(self.eval_data)
+                        self.forward_only(batch_eval, cond_eval)
                     logger.dumpkvs()
                 if self.step > 0 and global_step % self.save_interval == 0:
                     self.save()

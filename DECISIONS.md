@@ -4,6 +4,43 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-09 — Bugfix: Progress CSV positional writer — resume'da bütünlük garantisi
+
+**What:**
+1. `diffuvqa/utils/logger.py`: `PositionalCSVOutputFormat` sınıfı eklendi. Her satır `row_idx = step // eval_interval` ile konumlandırılır; aynı adım için ikinci bir write gelirse (örn. save_interval == eval_interval durumu) overwrite eder, duplicate satır oluşturmaz. Resume'da mevcut CSV okunup `rows` dict'ine yüklenir, yeni satırlar doğru konuma yazılır.
+2. `diffuvqa/utils/logger.py`: `make_output_format` ve `configure` fonksiyonlarına `eval_interval` parametresi eklendi. `eval_interval > 0` ise `PositionalCSVOutputFormat` devreye girer, aksi hâlde eski `CSVOutputFormat` kullanılır.
+3. `train_util.py`: `log_interval` ve `eval_interval` için ayrı ayrı çağrılan iki `logger.dumpkvs()` → `eval_interval`'da tek çağrıya indirildi. Eval varsa önce `forward_only` çalışır, sonra tek `dumpkvs()` ile train + eval metrikleri aynı satıra yazılır.
+4. `train.py`: Trim mantığı `0 < step <= resume_step` olarak düzeltildi — `step` alanı olmayan orphan eval satırları (`_step_val` → 0 döndürüyordu) artık trim'den kaçamaz. `eval_interval` `logger.configure()` çağrısına iletiliyor.
+
+**Why:** İki bağımsız `dumpkvs()` çağrısı train ve eval metriklerini ayrı satırlara yazıyordu. Eval satırlarında `step` alanı yoktu; trim `0 <= resume_step` koşuluyla bu satırları "tutuyordu". Resume'da orphan eval satırları CSV'de birikiyordu. `save_interval == eval_interval` olan adımlarda checkpoint kaydedilip training çöküp resume edildiğinde aynı adım için duplicate satır oluşabiliyordu. `row = step // eval_interval` konumlandırması tüm bu senaryoları kapatır: her adım tek bir satıra sahip olur ve idempotent write garantisi verir.
+
+**How to apply:** Yalnızca `eval_interval > 0` olduğunda `PositionalCSVOutputFormat` aktif olur. Mevcut checkpoint ve dataset uyumluluğu etkilenmiyor.
+
+---
+
+## 2026-06-09 — Bugfix: CUDAGraph buffer overwrite — `torch.compile` ile eğitim patlaması
+
+**What:**
+1. `diffuvqa/vqa_model.py` satır 305: `timestep_embedding(timesteps, self.hidden_t_dim)` → `.clone()` eklendi. CUDAGraph buffer'ından bağımsız kopya alınır.
+2. `train_util.py` satır 304: `torch.compiler.cudagraph_mark_step_begin()` her microbatch döngüsünde model çağrısından önce eklendi.
+3. `train.py` satır 119: `torch.compile(model, mode="reduce-overhead")` → `mode="default"`. `default` mod Triton kernel fusion'ı korur ama CUDAGraph kullanmaz.
+
+**Why:** `torch.compile(mode="reduce-overhead")` CUDAGraph kullanır. CUDAGraph her adımda buffer'ları in-place overwrite eder; `timestep_embedding` çıktısı sonraki graph replay'de eziliyordu. Backward pass bu tensöre erişince `RuntimeError: accessing tensor output of CUDAGraphs that has been overwritten by a subsequent run` fırlatılıyordu. Önceki eğitim run'larında görülmemişti çünkü yeni PyTorch sürümü (Colab ortamı güncellemesi) bu kontrolü sıkılaştırdı. Hız kaybını minimumda tutmak için `default` mod seçildi (~%5-10 yavaş, `reduce-overhead`'e kıyasla).
+
+**How to apply:** `USE_TORCH_COMPILE=True` ile eğitim başlatılabilir. Checkpoint uyumluluğu etkilenmiyor.
+
+---
+
+## 2026-06-09 — Bugfix: `decode_token` tek-token fallback — `TypeError: argument of type 'int' is not iterable`
+
+**What:** `basic_utils.py` `decode_token` içinde `seq.squeeze(-1).tolist()` çağrısı sonrası `isinstance(seq, int)` guard eklendi: skaler sonuç `[seq]` listesine sarılıyor.
+
+**Why:** Sampling fallback path'inde (`sample_vqa_GPU.py:354`) `masked_logits[_wi, 0].argmax().unsqueeze(0)` shape `[1]` döndürüyor. `decode_token` içinde `squeeze(-1)` bunu skaler `[]`'e daraltıyor, `.tolist()` → `int`. Sonrasında `self.sep_token_id in seq` → `TypeError: argument of type 'int' is not iterable`. Hata yalnızca winner boş/noktalama olduğunda ve BioBERT tokenizer (PreTrainedTokenizerFast) kullanıldığında tetikleniyordu.
+
+**How to apply:** Eğitim kodu etkilenmiyor; yalnızca sampling.
+
+---
+
 ## 2026-06-07 — v0.4 güncelleme: batch=160, LR linear scaling, warmup_steps=5000
 
 **What:**
