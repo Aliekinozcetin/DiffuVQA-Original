@@ -84,7 +84,12 @@ class feature_fusion(nn.Module):
         self.image_MLP = nn.Linear(145, 32)
         self.image_MLP.apply(self.init_weights)
 
-        self.modality_type_embeddings = nn.Embedding(2, args.hidden_dim)
+        # BERT/image encoder output is always 768-dim (args.d_model).
+        # hidden_dim is the diffusion latent space dim (may differ from 768).
+        # Projection layers map 768 → hidden_dim; internal attention stays at 768.
+        _enc_dim = args.d_model  # 768
+
+        self.modality_type_embeddings = nn.Embedding(2, _enc_dim)
         self.modality_type_embeddings.apply(self.init_weights)
 
         ###########  feature proj ###############
@@ -96,24 +101,29 @@ class feature_fusion(nn.Module):
         self.image_feature_proj.apply(self.init_weights)
 
         self.question_feature_proj = nn.Sequential(
-            nn.Linear(args.hidden_dim, args.extend_hidden_size),
+            nn.Linear(_enc_dim, args.extend_hidden_size),
             nn.GELU(),
             nn.Linear(args.extend_hidden_size, args.hidden_dim),
         )
         self.question_feature_proj.apply(self.init_weights)
 
         self.feature_proj = nn.Sequential(
-            nn.Linear(args.hidden_dim, args.extend_hidden_size),
+            nn.Linear(_enc_dim, args.extend_hidden_size),
             nn.GELU(),
             nn.Linear(args.extend_hidden_size, args.hidden_dim)
         )
         self.feature_proj.apply(self.init_weights)
 
-        self.layer_norm = LayerNorm(args.hidden_dim)
+        self.layer_norm = LayerNorm(_enc_dim)
         self.layer_norm.apply(self.init_weights)
 
-        self.cvae = CVAE(args.hidden_dim)
+        self.cvae = CVAE(_enc_dim)
         self.cvae.apply(self.init_weights)
+
+        # Projects pre_simu_answer_feats (768) → hidden_dim so it matches
+        # ddpm_input_pre dim for CIGN concatenation and pre_answer_loss MSE.
+        self.ans_proj = nn.Linear(_enc_dim, args.hidden_dim)
+        self.ans_proj.apply(self.init_weights)
 
     def forward(self, image, cond):
         # == Text Encoding ==
@@ -122,38 +132,36 @@ class feature_fusion(nn.Module):
         question_emb = self.language_encoder(q_ids)
         extended_q_masks = (1.0 - q_mask[:, None, None, :].float()) * -10000.0
         for layer in self.bert.encoder.layer:
-            question_feats = layer(question_emb, extended_q_masks)[0]
-        question_feats = self.question_feature_proj(question_feats)  # B 32 768
-
-        # print("q:", question_feats.shape)
-
-        # question_feats = self.question_feature_proj(question_feats)
+            question_feats = layer(question_emb, extended_q_masks)[0]  # B 32 768
 
         # == Image Encoding ==
         image_feats = self.vision_encoder(image)
         image_feats = image_feats.transpose(1, 2)
-        image_feats = self.image_MLP(image_feats).transpose(1, 2)
-        image_feats = self.image_feature_proj(image_feats)
+        image_feats = self.image_MLP(image_feats).transpose(1, 2)     # B 32 768
         image_masks = torch.ones((image_feats.size(0), image_feats.size(1)), dtype=torch.long,
                                  device=image_feats.device)
 
-        question_feats, image_feats = (
+        # Modality embeddings and cross-attention operate at encoder dim (768).
+        question_feats_enc, image_feats_enc = (
             question_feats + self.modality_type_embeddings(torch.zeros_like(q_mask)),
             image_feats + self.modality_type_embeddings(torch.full_like(image_masks, 1)),
         )
 
-        # Use question_feats (post-encoder) consistently instead of question_emb
-        # (pre-encoder raw embedding). Mixing the two adds incompatible scales.
-        pre_simu_answer_feats = self.cvae(question_feats + image_feats)
+        pre_simu_answer_feats = self.cvae(question_feats_enc + image_feats_enc)  # 768
 
-        f1 = self.cross_attention(pre_simu_answer_feats, question_feats, question_feats)
-        f2 = self.cross_attention(f1, image_feats, image_feats)
+        f1 = self.cross_attention(pre_simu_answer_feats, question_feats_enc, question_feats_enc)
+        f2 = self.cross_attention(f1, image_feats_enc, image_feats_enc)
         f3 = self.multi_attention(f2, f2, f2)
         f3 = self.layer_norm(f3)
-        f4 = self.feature_proj(f3)
+        f4 = self.feature_proj(f3)  # 768 → hidden_dim (64)
 
-        f = self.alpha * f4 + self.beta * image_feats + self.theta * question_feats
-        return f, pre_simu_answer_feats
+        # Project encoder features to hidden_dim for residual combination.
+        q_proj = self.question_feature_proj(question_feats_enc)   # 768 → 64
+        img_proj = self.image_feature_proj(image_feats_enc)       # 768 → 64
+
+        f = self.alpha * f4 + self.beta * img_proj + self.theta * q_proj
+        ans_emb_pre = self.ans_proj(pre_simu_answer_feats)  # 768 → hidden_dim
+        return f, ans_emb_pre
     
     def init_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):

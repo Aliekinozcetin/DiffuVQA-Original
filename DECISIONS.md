@@ -4,6 +4,19 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-11 — feature_fusion boyut uyumsuzluğu fix (hidden_dim=64 ile uyumlu)
+
+**What:**
+`vqa_model.py` `feature_fusion` modülünde encoder boyutu (768) ile diffusion latent space boyutunu (hidden_dim=64) birbirinden ayırdı:
+- `modality_type_embeddings`, `cvae`, `layer_norm`: `args.hidden_dim` → `args.d_model` (768) — encoder dim'inde çalışıyor
+- `question_feature_proj[0]`, `feature_proj[0]`: `args.hidden_dim` → `args.d_model` — giriş 768-dim encoder çıktısı
+- `ans_proj = nn.Linear(768, hidden_dim)`: yeni katman — `pre_simu_answer_feats` 768→64 project ediyor
+- `forward` yeniden düzenlendi: cross-attention 768-dim'de çalışıyor, projection son adımda 64-dim'e indiriyor
+
+**Why:** `hidden_dim=768`'de `feature_fusion` içindeki katmanlar hem encoder hem diffusion boyutu aynı olduğu için sorunsuz çalışıyordu. `hidden_dim=64`'te `question_feature_proj` ve `feature_proj` giriş boyutu 64 olunca 768-dim BERT çıktısıyla uyumsuzluk çıktı (`mat1 and mat2 shapes cannot be multiplied (32x768 and 64x1024)`). `ans_emb_pre` de 768-dim dönüyordu, `pre_answer_loss` MSE'de 64-dim `ans_emb` ile uyumsuzluk çıkacaktı.
+
+---
+
 ## 2026-06-10 — Paper parametrelerine geçiş (hidden_dim=64, diffusion_steps=2000, learning_steps=150000)
 
 **What:**
