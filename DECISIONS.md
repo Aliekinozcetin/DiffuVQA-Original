@@ -4,6 +4,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-11 — word_embedding BERT override kaldırıldı — 64-dim random init
+
+**What:** `vqa_model.py` `init_pretrained='bert'` bloğunda `self.word_embedding = temp_bert.embeddings.word_embeddings` satırı kaldırıldı. `word_embedding` artık `nn.Embedding(30522, input_dims=64)` random init olarak kalıyor. `lm_head.weight = word_embedding.weight` tied weight de kaldırıldı (zaten 64-dim tied idi).
+
+**Why:** BERT override `word_embedding`'i 768-dim yapıyordu; `get_embeds` 768-dim döndürüyordu; `cond_x_start_mean = torch.cat([ddpm_input_pre(64), ans_emb(768)])` boyut uyumsuzluğu patladı. BERT dil bilgisi `feature_fusion` encoder'ından geliyor — `TransformerNetModel`'deki `word_embedding` sadece token ↔ latent space mapping yapıyor, pretrained olması gerekmiyor. ~600 answer token 64-dim scratch'ten öğrenilebilir.
+
+---
+
 ## 2026-06-11 — feature_fusion boyut uyumsuzluğu fix (hidden_dim=64 ile uyumlu)
 
 **What:**

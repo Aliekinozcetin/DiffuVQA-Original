@@ -236,13 +236,10 @@ class TransformerNetModel(nn.Module):
 
             temp_bert = BertModel.from_pretrained(config_name, config=config)
 
-            self.word_embedding = temp_bert.embeddings.word_embeddings
+            # word_embedding stays as the random-init nn.Embedding(vocab, input_dims=64).
+            # BERT language knowledge enters via feature_fusion's encoder; the diffusion
+            # word_embedding only maps tokens ↔ latent space and is learned from scratch.
             self.fuse = feature_fusion(self.word_embedding, temp_bert, args)
-
-            with th.no_grad():
-                self.lm_head.weight = self.word_embedding.weight
-            # self.lm_head.weight.requires_grad = False
-            # self.word_embedding.weight.requires_grad = False
 
             self.input_transformers = temp_bert.encoder
             self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
