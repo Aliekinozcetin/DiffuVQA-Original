@@ -125,8 +125,10 @@
 - [x] `train.py`'de answer_vocab_ids hesaplanıp TrainLoop'a geçiliyor
 - [x] `train_util.py` forward_backward + forward_only'e answer_vocab_ids enjeksiyonu
 - [x] RESUME_CHECKPOINT sıfırlandı — vocab mismatch fix ile sıfırdan training
-- [ ] 40k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
-- [ ] 160k-200k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
+- [x] `gaussian_diffusion.py` training NLL vocab maskeleme kaldırıldı — SEP/PAD ground-truth token'ları -inf → NaN loss → LossAwareSampler crash; vocab kısıtlama inference'da (argmax decode) kalıyor
+- [x] Paper parametrelerine geçiş: `basic_utils.py` `input_dims/output_dims/hidden_t_dim` hardcode → `args.hidden_dim/args.hidden_t_dim`; `config.json` hidden_dim=64, hidden_t_dim=64, diffusion_steps=2000, learning_steps=150000, batch_size=16, save_interval=25000
+- [ ] 50k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
+- [ ] 150k final analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle

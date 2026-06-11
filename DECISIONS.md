@@ -4,6 +4,17 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-10 — Paper parametrelerine geçiş (hidden_dim=64, diffusion_steps=2000, learning_steps=150000)
+
+**What:**
+1. `basic_utils.py`: `TransformerNetModel` çağrısında `input_dims=768`, `output_dims=768`, `hidden_t_dim=128` hardcode'dan `args.hidden_dim`, `args.hidden_dim`, `args.hidden_t_dim` config-driven'a geçirildi.
+2. `config.json`: `hidden_dim=64`, `hidden_t_dim=64`, `hidden_size=64`, `diffusion_steps=2000`, `learning_steps=150000`, `save_interval=25000`, `batch_size=16`.
+3. Notebook Cell 2: Aynı değerler güncellendi, `RESUME_CHECKPOINT=""` (sıfırdan training).
+
+**Why:** Mevcut config'de `input_dims/output_dims` hardcode 768'di — `hidden_dim` config'i hiçbir zaman Transformer backbone'a yansımıyordu. Paper, diffusion latent space'i 64-dim kullanıyor: BERT backbone 768'de kalır, `input_up_proj` (64→768) ve `output_down_proj` (768→64) zaten `vqa_model.py`'de koşullu olarak mevcuttu. `diffusion_steps=2000` ve `learning_steps=150000` paper ayarlarına dönüş; model daha küçük latent space ile daha hızlı converge bekleniyor.
+
+---
+
 ## 2026-06-10 — Training-inference vocab mismatch fix — sıfırdan training
 
 **What:**
