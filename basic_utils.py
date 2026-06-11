@@ -94,9 +94,11 @@ def load_model_emb(args, tokenizer):
     if os.path.exists(path_save):
         saved = torch.load(path_save, map_location='cpu')
         saved_vocab = saved['weight'].shape[0]
-        if saved_vocab != tokenizer.vocab_size:
-            print(f'WARNING: random_emb.torch vocab size mismatch '
-                  f'(saved={saved_vocab}, tokenizer={tokenizer.vocab_size}). '
+        saved_dim   = saved['weight'].shape[1]
+        if saved_vocab != tokenizer.vocab_size or saved_dim != args.hidden_dim:
+            print(f'WARNING: random_emb.torch shape mismatch '
+                  f'(saved={saved_vocab}x{saved_dim}, '
+                  f'expected={tokenizer.vocab_size}x{args.hidden_dim}). '
                   f'Re-initializing embeddings.')
             torch.nn.init.normal_(model.weight)
             torch.save(model.state_dict(), path_save)
