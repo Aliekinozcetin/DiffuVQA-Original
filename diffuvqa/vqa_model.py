@@ -236,17 +236,17 @@ class TransformerNetModel(nn.Module):
 
             temp_bert = BertModel.from_pretrained(config_name, config=config)
 
-            # word_embedding stays as the random-init nn.Embedding(vocab, input_dims=64).
-            # BERT language knowledge enters via feature_fusion's encoder; the diffusion
-            # word_embedding only maps tokens ↔ latent space and is learned from scratch.
-            self.fuse = feature_fusion(self.word_embedding, temp_bert, args)
+            # feature_fusion uses BERT's embeddings module (768-dim) as language_encoder
+            # so BERT encoder layers receive correctly-sized input.
+            # TransformerNetModel's word_embedding stays as random-init nn.Embedding(vocab, 64)
+            # for diffusion token ↔ latent space mapping only.
+            self.fuse = feature_fusion(temp_bert.embeddings, temp_bert, args)
 
             self.input_transformers = temp_bert.encoder
             self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
             self.position_embeddings = temp_bert.embeddings.position_embeddings
             self.LayerNorm = temp_bert.embeddings.LayerNorm
 
-            del temp_bert.embeddings
             del temp_bert.pooler
 
         elif init_pretrained == 'no':

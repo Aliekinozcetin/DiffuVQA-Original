@@ -129,6 +129,7 @@
 - [x] Paper parametrelerine geçiş: `basic_utils.py` `input_dims/output_dims/hidden_t_dim` hardcode → `args.hidden_dim/args.hidden_t_dim`; `config.json` hidden_dim=64, hidden_t_dim=64, diffusion_steps=2000, learning_steps=150000, batch_size=16, save_interval=25000
 - [x] `vqa_model.py` `feature_fusion` boyut uyumsuzluğu fix — encoder dim (768) ve hidden_dim (64) ayrıldı; cross-attention 768'de, projection en sonda 64'e; `ans_proj` eklendi (768→64)
 - [x] `vqa_model.py` BERT word_embedding override kaldırıldı — `word_embedding` 64-dim random init kalıyor; BERT dil bilgisi feature_fusion encoder'ından geliyor
+- [x] `vqa_model.py` feature_fusion language_encoder: `word_embedding(64)` → `temp_bert.embeddings(768)` — BERT encoder layer'larına 768-dim input sağlamak için
 - [ ] 50k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
 - [ ] 150k final analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi

@@ -4,6 +4,14 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-11 — feature_fusion language_encoder BERT embeddings modülüne değiştirildi
+
+**What:** `TransformerNetModel.__init__`'te `feature_fusion`'a `self.word_embedding` (64-dim) yerine `temp_bert.embeddings` (768-dim BertEmbeddings modülü) geçildi. `del temp_bert.embeddings` kaldırıldı — modül artık `fuse.language_encoder` olarak yaşıyor.
+
+**Why:** `language_encoder(q_ids)` → 64-dim çıkıyordu; BERT encoder layer'ları `Linear(768,768)` bekliyor → `(512×64) × (768×768)` boyut patladı. BERT embeddings modülü doğrudan `input_ids` alıp 768-dim embedding döndürüyor; BERT encoder layer'larıyla uyumlu.
+
+---
+
 ## 2026-06-11 — word_embedding BERT override kaldırıldı — 64-dim random init
 
 **What:** `vqa_model.py` `init_pretrained='bert'` bloğunda `self.word_embedding = temp_bert.embeddings.word_embeddings` satırı kaldırıldı. `word_embedding` artık `nn.Embedding(30522, input_dims=64)` random init olarak kalıyor. `lm_head.weight = word_embedding.weight` tied weight de kaldırıldı (zaten 64-dim tied idi).
