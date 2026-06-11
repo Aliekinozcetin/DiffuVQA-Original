@@ -4,6 +4,18 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-11 — BERT embedding + projection (768→64→768) — Seçenek 1
+
+**What:** `vqa_model.py` `TransformerNetModel`'de:
+1. `word_embedding` ve `lm_head` BERT embedding space'inde (768-dim) çalışıyor; `init_pretrained='bert'`'te BERT'in pretrained word_embedding ağırlıkları yükleniyor, `lm_head` tied.
+2. `embed_to_latent = nn.Linear(768, input_dims=64)` eklendi — `get_embeds`'te BERT embedding → latent space.
+3. `latent_to_embed = nn.Linear(64, 768)` eklendi — `get_logits`'te latent → BERT space → `lm_head`.
+4. Akış: `token → BERT_emb(768) → embed_to_latent(64) → diffusion(64) → latent_to_embed(768) → lm_head(vocab)`.
+
+**Why:** Random 64-dim embedding ile `rounding_agreement=0.013` — semantik yapı yok, model token'lara anlamlı map edemiyor. BERT pretrained embedding semantik bilgiyi taşıyor; `embed_to_latent`/`latent_to_embed` ile diffusion 64-dim latent space'de çalışmaya devam ediyor.
+
+---
+
 ## 2026-06-11 — feature_fusion language_encoder BERT embeddings modülüne değiştirildi
 
 **What:** `TransformerNetModel.__init__`'te `feature_fusion`'a `self.word_embedding` (64-dim) yerine `temp_bert.embeddings` (768-dim BertEmbeddings modülü) geçildi. `del temp_bert.embeddings` kaldırıldı — modül artık `fuse.language_encoder` olarak yaşıyor.

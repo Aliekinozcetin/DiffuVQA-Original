@@ -214,10 +214,16 @@ class TransformerNetModel(nn.Module):
         self.logits_mode = logits_mode
         self.hidden_size = config.hidden_size
 
-        self.word_embedding = nn.Embedding(vocab_size, self.input_dims)
-        self.lm_head = nn.Linear(self.input_dims, vocab_size)
+        # word_embedding and lm_head operate in BERT embedding space (768-dim).
+        # embed_to_latent / latent_to_embed bridge between BERT space and diffusion latent space.
+        self.word_embedding = nn.Embedding(vocab_size, config.hidden_size)
+        self.lm_head = nn.Linear(config.hidden_size, vocab_size, bias=False)
         with th.no_grad():
             self.lm_head.weight = self.word_embedding.weight
+
+        if self.input_dims != config.hidden_size:
+            self.embed_to_latent = nn.Linear(config.hidden_size, self.input_dims)
+            self.latent_to_embed = nn.Linear(self.input_dims, config.hidden_size)
 
         time_embed_dim = hidden_t_dim * 4
         self.time_embed = nn.Sequential(
@@ -236,10 +242,12 @@ class TransformerNetModel(nn.Module):
 
             temp_bert = BertModel.from_pretrained(config_name, config=config)
 
-            # feature_fusion uses BERT's embeddings module (768-dim) as language_encoder
-            # so BERT encoder layers receive correctly-sized input.
-            # TransformerNetModel's word_embedding stays as random-init nn.Embedding(vocab, 64)
-            # for diffusion token ↔ latent space mapping only.
+            # Load BERT's pretrained word embeddings (768-dim) — semantically rich init.
+            # embed_to_latent projects these to diffusion latent space (input_dims).
+            self.word_embedding = temp_bert.embeddings.word_embeddings  # (30522, 768)
+            with th.no_grad():
+                self.lm_head.weight = self.word_embedding.weight  # tied, (30522, 768)
+
             self.fuse = feature_fusion(temp_bert.embeddings, temp_bert, args)
 
             self.input_transformers = temp_bert.encoder
@@ -266,9 +274,15 @@ class TransformerNetModel(nn.Module):
                                                   nn.Tanh(), nn.Linear(config.hidden_size, self.output_dims))
 
     def get_embeds(self, input_ids):
-        return self.word_embedding(input_ids)
+        bert_emb = self.word_embedding(input_ids)  # (B, seq_len, 768)
+        if hasattr(self, 'embed_to_latent'):
+            return self.embed_to_latent(bert_emb)  # (B, seq_len, input_dims)
+        return bert_emb
 
     def get_logits(self, hidden_repr):
+        # Project from latent space back to BERT embedding space before lm_head.
+        if hasattr(self, 'latent_to_embed'):
+            hidden_repr = self.latent_to_embed(hidden_repr)  # (B, seq_len, 768)
         if self.logits_mode == 1:
             return self.lm_head(hidden_repr)
         elif self.logits_mode == 2:  # standard cosine similarity
