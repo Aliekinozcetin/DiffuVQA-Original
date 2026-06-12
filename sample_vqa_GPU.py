@@ -58,7 +58,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
 
 
 def create_argparser():
-    defaults = dict(model_path='', step=2500, out_dir='', top_p=0)
+    defaults = dict(model_path='', step=2500, out_dir='', top_p=0, n_samples=1)
     decode_defaults = dict(split='test', clamp_step=0, seed2=105, clip_denoised=False)
     defaults.update(load_defaults_config())
     defaults.update(decode_defaults)
@@ -120,7 +120,7 @@ def main():
     tokenizer = load_tokenizer(args)
     model_emb = th.nn.Embedding(
         num_embeddings=tokenizer.vocab_size,
-        embedding_dim=args.hidden_dim,
+        embedding_dim=model.word_embedding.weight.shape[1],
         _weight=model.word_embedding.weight.clone().cuda()
     ).eval().requires_grad_(False)
 
