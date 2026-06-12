@@ -126,11 +126,7 @@
 - [x] `train_util.py` forward_backward + forward_only'e answer_vocab_ids enjeksiyonu
 - [x] RESUME_CHECKPOINT sıfırlandı — vocab mismatch fix ile sıfırdan training
 - [x] `gaussian_diffusion.py` training NLL vocab maskeleme kaldırıldı — SEP/PAD ground-truth token'ları -inf → NaN loss → LossAwareSampler crash; vocab kısıtlama inference'da (argmax decode) kalıyor
-- [x] Paper parametrelerine geçiş: `basic_utils.py` `input_dims/output_dims/hidden_t_dim` hardcode → `args.hidden_dim/args.hidden_t_dim`; `config.json` hidden_dim=64, hidden_t_dim=64, diffusion_steps=2000, learning_steps=150000, batch_size=16, save_interval=25000
-- [x] `vqa_model.py` `feature_fusion` boyut uyumsuzluğu fix — encoder dim (768) ve hidden_dim (64) ayrıldı; cross-attention 768'de, projection en sonda 64'e; `ans_proj` eklendi (768→64)
-- [x] `vqa_model.py` BERT word_embedding override kaldırıldı — `word_embedding` 64-dim random init kalıyor; BERT dil bilgisi feature_fusion encoder'ından geliyor
-- [x] `vqa_model.py` feature_fusion language_encoder: `word_embedding(64)` → `temp_bert.embeddings(768)` — BERT encoder layer'larına 768-dim input sağlamak için
-- [x] `vqa_model.py` BERT embedding + projection: `word_embedding`/`lm_head` 768-dim (BERT pretrained), `embed_to_latent(768→64)` + `latent_to_embed(64→768)` eklendi; random 64-dim embedding'in rounding_agreement=0.013 sorunu giderildi
+- [x] Orijinal repo koduna tam dönüş yapıldı — tüm custom mimarı değişiklikler (answer_vocab_ids maskeleme, embed_to_latent/latent_to_embed, cosine decay gate, subword filtering, majority vote) kaldırıldı; README config değerleri uygulandı (batch_size=64, seq_len=64, seed=105, gradient_clipping=0.5, weight_decay=0.0, microbatch=64)
 - [ ] 50k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
 - [ ] 150k final analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi

@@ -150,9 +150,9 @@ def create_model_and_diffusion(args):
 
     elif args.model == 'transformer-bert':
         model =  TransformerNetModel(
-        input_dims=args.hidden_dim,
-        output_dims=args.hidden_dim,
-        hidden_t_dim=args.hidden_t_dim,
+        input_dims=768,
+        output_dims=768,
+        hidden_t_dim=128,
         dropout=0.1,
         config_name="bert-base-uncased",
         vocab_size=30522,

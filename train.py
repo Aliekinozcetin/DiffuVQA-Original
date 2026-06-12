@@ -120,37 +120,6 @@ def main():
     with open(f'{args.checkpoint_path}/training_args.json', 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
-    # Build answer_vocab_ids from train JSONL — same logic as sample_vqa_GPU.py.
-    # This ensures NLL during training is restricted to the same ~600-token subset
-    # used at inference, eliminating the training-inference vocab mismatch.
-    import json as _json
-    _train_jsonl = os.path.join(args.data_dir, 'train.jsonl')
-    _answer_vocab_set = set()
-    if os.path.exists(_train_jsonl):
-        with open(_train_jsonl, 'r') as _f:
-            for _line in _f:
-                _ans = _json.loads(_line).get('answer', '')
-                if _ans:
-                    _ids = tokenizer.tokenizer(
-                        _ans, add_special_tokens=True,
-                        padding='max_length', max_length=args.seq_len,
-                        truncation=True
-                    )['input_ids']
-                    _answer_vocab_set.update(_ids)
-        _answer_vocab_set.discard(None)
-        _answer_vocab_set.discard(tokenizer.tokenizer.cls_token_id)
-        _answer_vocab_set.discard(tokenizer.tokenizer.pad_token_id)
-        _answer_vocab_set = {
-            tid for tid in _answer_vocab_set
-            if tid is not None and
-            not tokenizer.tokenizer.convert_ids_to_tokens(tid).startswith('##')
-        }
-        answer_vocab_ids = torch.tensor(sorted(_answer_vocab_set), dtype=torch.long)
-        logger.log(f"### answer_vocab_ids: {len(answer_vocab_ids)} tokens (from train.jsonl)")
-    else:
-        answer_vocab_ids = None
-        logger.log("### WARNING: train.jsonl not found, answer_vocab_ids=None (no vocab restriction during training)")
-
     logger.log("### Training...")
 
     TrainLoop(
@@ -173,7 +142,6 @@ def main():
         gradient_clipping=args.gradient_clipping,
         eval_data=data_valid,
         eval_interval=args.eval_interval,
-        answer_vocab_ids=answer_vocab_ids,
     ).run_loop(args)
 
 if __name__ == "__main__":

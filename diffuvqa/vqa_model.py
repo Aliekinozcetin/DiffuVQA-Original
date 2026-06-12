@@ -84,12 +84,7 @@ class feature_fusion(nn.Module):
         self.image_MLP = nn.Linear(145, 32)
         self.image_MLP.apply(self.init_weights)
 
-        # BERT/image encoder output is always 768-dim (args.d_model).
-        # hidden_dim is the diffusion latent space dim (may differ from 768).
-        # Projection layers map 768 → hidden_dim; internal attention stays at 768.
-        _enc_dim = args.d_model  # 768
-
-        self.modality_type_embeddings = nn.Embedding(2, _enc_dim)
+        self.modality_type_embeddings = nn.Embedding(2, args.hidden_dim)
         self.modality_type_embeddings.apply(self.init_weights)
 
         ###########  feature proj ###############
@@ -101,67 +96,59 @@ class feature_fusion(nn.Module):
         self.image_feature_proj.apply(self.init_weights)
 
         self.question_feature_proj = nn.Sequential(
-            nn.Linear(_enc_dim, args.extend_hidden_size),
+            nn.Linear(args.hidden_dim, args.extend_hidden_size),
             nn.GELU(),
             nn.Linear(args.extend_hidden_size, args.hidden_dim),
         )
         self.question_feature_proj.apply(self.init_weights)
 
         self.feature_proj = nn.Sequential(
-            nn.Linear(_enc_dim, args.extend_hidden_size),
+            nn.Linear(args.hidden_dim, args.extend_hidden_size),
             nn.GELU(),
             nn.Linear(args.extend_hidden_size, args.hidden_dim)
         )
         self.feature_proj.apply(self.init_weights)
 
-        self.layer_norm = LayerNorm(_enc_dim)
+        self.layer_norm = LayerNorm(args.hidden_dim)
         self.layer_norm.apply(self.init_weights)
 
-        self.cvae = CVAE(_enc_dim)
+        self.cvae = CVAE(args.hidden_dim)
         self.cvae.apply(self.init_weights)
-
-        # Projects pre_simu_answer_feats (768) → hidden_dim so it matches
-        # ddpm_input_pre dim for CIGN concatenation and pre_answer_loss MSE.
-        self.ans_proj = nn.Linear(_enc_dim, args.hidden_dim)
-        self.ans_proj.apply(self.init_weights)
 
     def forward(self, image, cond):
         # == Text Encoding ==
         q_ids = cond.pop('input_q_id')
         q_mask = (q_ids != 0).long().to(q_ids.device)
+        q_input_shape = q_mask.size()
         question_emb = self.language_encoder(q_ids)
         extended_q_masks = (1.0 - q_mask[:, None, None, :].float()) * -10000.0
         for layer in self.bert.encoder.layer:
-            question_feats = layer(question_emb, extended_q_masks)[0]  # B 32 768
+            question_feats = layer(question_emb, extended_q_masks)[0]
+        question_feats = self.question_feature_proj(question_feats)
 
         # == Image Encoding ==
         image_feats = self.vision_encoder(image)
         image_feats = image_feats.transpose(1, 2)
-        image_feats = self.image_MLP(image_feats).transpose(1, 2)     # B 32 768
+        image_feats = self.image_MLP(image_feats).transpose(1, 2)
+        image_feats = self.image_feature_proj(image_feats)
         image_masks = torch.ones((image_feats.size(0), image_feats.size(1)), dtype=torch.long,
                                  device=image_feats.device)
 
-        # Modality embeddings and cross-attention operate at encoder dim (768).
-        question_feats_enc, image_feats_enc = (
+        question_feats, image_feats = (
             question_feats + self.modality_type_embeddings(torch.zeros_like(q_mask)),
             image_feats + self.modality_type_embeddings(torch.full_like(image_masks, 1)),
         )
 
-        pre_simu_answer_feats = self.cvae(question_feats_enc + image_feats_enc)  # 768
+        pre_simu_answer_feats = self.cvae(question_emb + image_feats)
 
-        f1 = self.cross_attention(pre_simu_answer_feats, question_feats_enc, question_feats_enc)
-        f2 = self.cross_attention(f1, image_feats_enc, image_feats_enc)
+        f1 = self.cross_attention(pre_simu_answer_feats, question_feats, question_feats)
+        f2 = self.cross_attention(f1, image_feats, image_feats)
         f3 = self.multi_attention(f2, f2, f2)
         f3 = self.layer_norm(f3)
-        f4 = self.feature_proj(f3)  # 768 → hidden_dim (64)
+        f4 = self.feature_proj(f3)
 
-        # Project encoder features to hidden_dim for residual combination.
-        q_proj = self.question_feature_proj(question_feats_enc)   # 768 → 64
-        img_proj = self.image_feature_proj(image_feats_enc)       # 768 → 64
-
-        f = self.alpha * f4 + self.beta * img_proj + self.theta * q_proj
-        ans_emb_pre = self.ans_proj(pre_simu_answer_feats)  # 768 → hidden_dim
-        return f, ans_emb_pre
+        f = self.alpha * f4 + self.beta * image_feats + self.theta * (question_feats + question_emb)
+        return f, pre_simu_answer_feats
     
     def init_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
@@ -214,16 +201,10 @@ class TransformerNetModel(nn.Module):
         self.logits_mode = logits_mode
         self.hidden_size = config.hidden_size
 
-        # word_embedding and lm_head operate in BERT embedding space (768-dim).
-        # embed_to_latent / latent_to_embed bridge between BERT space and diffusion latent space.
-        self.word_embedding = nn.Embedding(vocab_size, config.hidden_size)
-        self.lm_head = nn.Linear(config.hidden_size, vocab_size, bias=False)
+        self.word_embedding = nn.Embedding(vocab_size, self.input_dims)
+        self.lm_head = nn.Linear(self.input_dims, vocab_size)
         with th.no_grad():
             self.lm_head.weight = self.word_embedding.weight
-
-        if self.input_dims != config.hidden_size:
-            self.embed_to_latent = nn.Linear(config.hidden_size, self.input_dims)
-            self.latent_to_embed = nn.Linear(self.input_dims, config.hidden_size)
 
         time_embed_dim = hidden_t_dim * 4
         self.time_embed = nn.Sequential(
@@ -242,19 +223,18 @@ class TransformerNetModel(nn.Module):
 
             temp_bert = BertModel.from_pretrained(config_name, config=config)
 
-            # Load BERT's pretrained word embeddings (768-dim) — semantically rich init.
-            # embed_to_latent projects these to diffusion latent space (input_dims).
-            self.word_embedding = temp_bert.embeddings.word_embeddings  # (30522, 768)
-            with th.no_grad():
-                self.lm_head.weight = self.word_embedding.weight  # tied, (30522, 768)
+            self.word_embedding = temp_bert.embeddings.word_embeddings
+            self.fuse = feature_fusion(self.word_embedding, temp_bert, args)
 
-            self.fuse = feature_fusion(temp_bert.embeddings, temp_bert, args)
+            with th.no_grad():
+                self.lm_head.weight = self.word_embedding.weight
 
             self.input_transformers = temp_bert.encoder
             self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
             self.position_embeddings = temp_bert.embeddings.position_embeddings
             self.LayerNorm = temp_bert.embeddings.LayerNorm
 
+            del temp_bert.embeddings
             del temp_bert.pooler
 
         elif init_pretrained == 'no':
@@ -274,26 +254,21 @@ class TransformerNetModel(nn.Module):
                                                   nn.Tanh(), nn.Linear(config.hidden_size, self.output_dims))
 
     def get_embeds(self, input_ids):
-        bert_emb = self.word_embedding(input_ids)  # (B, seq_len, 768)
-        if hasattr(self, 'embed_to_latent'):
-            return self.embed_to_latent(bert_emb)  # (B, seq_len, input_dims)
-        return bert_emb
+        return self.word_embedding(input_ids)
 
     def get_logits(self, hidden_repr):
-        # Project from latent space back to BERT embedding space before lm_head.
-        if hasattr(self, 'latent_to_embed'):
-            hidden_repr = self.latent_to_embed(hidden_repr)  # (B, seq_len, 768)
         if self.logits_mode == 1:
             return self.lm_head(hidden_repr)
         elif self.logits_mode == 2:  # standard cosine similarity
-            bsz, seqlen, d = hidden_repr.shape
-            text_emb = hidden_repr.view(-1, d)               # (bsz*seqlen, d)
-            emb_norm = (self.lm_head.weight ** 2).sum(-1).view(-1, 1)   # (vocab, 1)
-            text_emb_t = text_emb.transpose(0, 1)            # (d, bsz*seqlen)
-            arr_norm = (text_emb ** 2).sum(-1).view(1, -1)   # (1, bsz*seqlen)
-            dist = emb_norm + arr_norm - 2.0 * th.mm(self.lm_head.weight, text_emb_t)  # (vocab, bsz*seqlen)
-            scores = -th.sqrt(th.clamp(dist, 0.0, np.inf))   # (vocab, bsz*seqlen)
-            scores = scores.transpose(0, 1).view(bsz, seqlen, -1)  # (bsz, seqlen, vocab)
+            text_emb = hidden_repr
+            emb_norm = (self.lm_head.weight ** 2).sum(-1).view(-1, 1)  # vocab
+            text_emb_t = th.transpose(text_emb.view(-1, text_emb.size(-1)), 0, 1)  # d, bsz*seqlen
+            arr_norm = (text_emb ** 2).sum(-1).view(-1, 1)  # bsz*seqlen, 1
+            dist = emb_norm + arr_norm.transpose(0, 1) - 2.0 * th.mm(self.lm_head.weight,
+                                                                      text_emb_t)
+            scores = th.sqrt(th.clamp(dist, 0.0, np.inf)).view(emb_norm.size(0), hidden_repr.size(0),
+                                                                hidden_repr.size(1))
+            scores = -scores.permute(1, 2, 0).contiguous()
             return scores
         else:
             raise NotImplementedError

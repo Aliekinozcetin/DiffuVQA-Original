@@ -4,6 +4,39 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-12 — Orijinal repo koduna tam dönüş + README config değerleri
+
+**What:** Tüm modifiye edilmiş dosyalar orijinal DiffuVQA reposuna geri alındı. README reproduce komutu config değerleri uygulandı.
+
+Reverted files:
+- `vqa_model.py`: `embed_to_latent`/`latent_to_embed` kaldırıldı; `word_embedding`/`lm_head` BERT pretrained 768-dim; `feature_fusion` tüm boyutlar `args.hidden_dim`; CIGN `[ddpm_input_pre, ddpm_input_pre]`; `get_embeds` direkt `word_embedding(input_ids)`; `get_logits` orijinal cosine similarity.
+- `basic_utils.py`: `input_dims=768, output_dims=768, hidden_t_dim=128` hardcoded (orijinalde böyle).
+- `gaussian_diffusion.py`: `_token_discrete_loss` mask yok, vanilla NLL; `training_losses_seq2seq` vanilla MSE/tT_loss/NLL, `answer_vocab_ids` pop kaldırıldı, `pre_answer_weight` pop kaldırıldı.
+- `train.py`: `answer_vocab_ids` hesaplama bloğu kaldırıldı.
+- `train_util.py`: `answer_vocab_ids` parametresi, `pre_answer_weight` cosine decay, her iki injection bloğu kaldırıldı; `math` import kaldırıldı.
+- `rounding.py`: Orijinal `denoised_fn_round(args, model, text_emb, t)` imzasına dönüldü (answer_vocab_ids/get_logits yok).
+- `sample_vqa_GPU.py`: answer_vocab_ids, subword filtering, majority vote, confidence decode kaldırıldı; `fout = open(out_path, 'a')` append modu geri alındı; `denoised_fn=partial(denoised_fn_round, args, model_emb)` geri alındı. Kalan iyileştirmeler: HF_ENDPOINT comment, CLI arg preservation, tqdm, `sample_shape=(x_start.shape[0], x_start.shape[1], args.hidden_dim)`.
+
+Config değişiklikleri (`config.json` + notebook):
+- `batch_size`: 16 → 64
+- `seq_len`: 32 → 64
+- `seed`: 102 → 105
+- `gradient_clipping`: 0.75 → 0.5
+- `weight_decay`: 0.01 → 0.0
+- `MICROBATCH`: 0 → 64
+
+**Why:** Çok sayıda mimari değişiklik birikimiyle karmaşık hata ayıklama döngüsüne girildi. Orijinal repoda `input_dims=768` hardcoded olduğu keşfedildi — `hidden_dim=64` yalnızca `feature_fusion` projeksiyon boyutlarını etkiliyor, diffusion transformer veya word_embedding'i etkilemiyor. Tüm custom değişiklikler (answer_vocab_ids maskeleme, BERT projection, cosine decay gate) kaldırılarak temiz baseline elde edildi.
+
+**Korunan bug fix'ler (orijinalde yok, bizde var):**
+- `transformers>=4.36` uyumluluğu: `get_extended_attention_mask` inline mask ile değiştirildi
+- `_SingleGPUDDP` wrapper (`train_util.py`)
+- `logger.py` CSV append/trim
+- `decode_token` wordpiece fix
+- `drop_last=False` test dataloader
+- `sample_shape=(x_start.shape[0], x_start.shape[1], args.hidden_dim)`
+
+---
+
 ## 2026-06-11 — BERT embedding + projection (768→64→768) — Seçenek 1
 
 **What:** `vqa_model.py` `TransformerNetModel`'de:
