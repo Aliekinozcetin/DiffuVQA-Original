@@ -4,6 +4,31 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-12 — seq_len 64→32, image_resolution 384→224, eval_interval 5000→25000
+
+**What:**
+- `seq_len`: 64 → 32 (config.json + notebook)
+- `image_resolution`: 384 → 224 (config.json + notebook)
+- `eval_interval`: 1000/5000 → 25000 (config.json + notebook)
+
+**Why:** 150k adım için beklenen süre ~6-8 saat iken ~24 saat çıktı (~4x yavaş). Sebepler:
+- `seq_len=64`: attention O(seq_len²) → 32→64 geçişi ~4x compute artışı. Kvasir-VQA cevapları 1-4 kelime, BERT tokenizer ile 1-6 token — 32 token %99.9+ cevabı kapsar, 64 gereksiz.
+- `image_resolution=384`: CLIP ViT-B/32 native resolution 224, 384 patch interpolation ekliyor ve ~2.9x görüntü işleme yükü. 224 daha temiz feature uzayı.
+- `eval_interval=1000/5000`: 150k adımda 30-150 kez full valid set → toplam sürenin %40-50'si.
+
+---
+
+## 2026-06-12 — feature_fusion ve image_MLP boyut fix'leri
+
+**What:**
+- `feature_fusion` içindeki tüm BERT-output dokunumlular `_enc_dim=768` sabitine bağlandı (`question_feature_proj`, `feature_proj`, `cvae`, `layer_norm`, `modality_type_embeddings`)
+- `image_MLP` giriş boyutu: 145 hardcoded → `(image_resolution//32)^2 + 1` dinamik
+- `image_MLP` çıkış boyutu: 32 hardcoded → `args.seq_len` dinamik
+
+**Why:** `hidden_dim=64` config ile BERT encoder 768-dim çıktı üretirken `question_feature_proj` giriş 64 bekliyordu → `mat1(64x768) × mat2(64x1024)` crash. `image_resolution=224` ile CLIP 50 patch üretirken `image_MLP` 145 bekliyordu → `mat1(49152x50) × mat2(145x64)` crash. `seq_len=64` ile question_emb(B,64,768) + image_feats(B,32,768) boyut uyumsuzluğu.
+
+---
+
 ## 2026-06-12 — Orijinal repo koduna tam dönüş + README config değerleri
 
 **What:** Tüm modifiye edilmiş dosyalar orijinal DiffuVQA reposuna geri alındı. README reproduce komutu config değerleri uygulandı.

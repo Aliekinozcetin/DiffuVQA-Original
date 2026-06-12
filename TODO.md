@@ -127,6 +127,11 @@
 - [x] RESUME_CHECKPOINT sıfırlandı — vocab mismatch fix ile sıfırdan training
 - [x] `gaussian_diffusion.py` training NLL vocab maskeleme kaldırıldı — SEP/PAD ground-truth token'ları -inf → NaN loss → LossAwareSampler crash; vocab kısıtlama inference'da (argmax decode) kalıyor
 - [x] Orijinal repo koduna tam dönüş yapıldı — tüm custom mimarı değişiklikler (answer_vocab_ids maskeleme, embed_to_latent/latent_to_embed, cosine decay gate, subword filtering, majority vote) kaldırıldı; README config değerleri uygulandı (batch_size=64, seq_len=64, seed=105, gradient_clipping=0.5, weight_decay=0.0, microbatch=64)
+- [x] `sample_vqa_GPU.py` `n_samples` argparse + `model_emb embedding_dim` fix — `--n_samples 1` unrecognized arg; `embedding_dim=args.hidden_dim(64)` → `word_embedding.weight.shape[1](768)` shape mismatch
+- [x] `feature_fusion` boyutları BERT encoder çıkışıyla (768) hizalandı — `_enc_dim=768` sabit; `question_feature_proj`/`feature_proj`/`cvae`/`layer_norm`/`modality_type_embeddings` `hidden_dim=64` yerine 768-dim
+- [x] `image_MLP` giriş boyutu dinamik: 145 hardcoded → `(image_resolution//32)^2+1`; çıkış: 32 → `args.seq_len`
+- [x] `eval_interval` 1000/5000 → 25000, `image_resolution` 384 → 224 — training hız optimizasyonu (~4x yavaşlık giderildi)
+- [x] `seq_len` 64 → 32 — Kvasir-VQA cevapları 1-4 kelime, 32 token yeterli; attention O(seq_len²) ~3x hız kazanımı
 - [ ] 50k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
 - [ ] 150k final analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
