@@ -92,23 +92,42 @@ Metrikler Kvasir-VQA test seti üzerinden hesaplanmıştır (5886 satır, 20 sor
 - `train_util.py`: BF16 AMP desteği (`th.autocast` + `th.amp.GradScaler`), deprecated `th.cuda.amp.GradScaler` düzeltildi
 - `train.py`: `torch.compile(mode="reduce-overhead")` desteği eklendi
 
-### Metrikler
-| Checkpoint | Exact | Y/N | OE | Empty | Avg Len | BLEU-1 | F1 | METEOR |
-|---|---|---|---|---|---|---|---|---|
-| 10k | 5.33% | 9.11% | 1.75% | **0%** | 2.94 | 10.33% | 8.64% | 4.59% |
-| 20k | **6.05%** | **10.65%** | 1.69% | **0%** | 3.23 | **10.46%** | **9.42%** | **5.27%** |
+### Metrikler (batch=96, LR=3e-5)
+| Checkpoint | Exact | Y/N | OE | Empty | Avg Len | BLEU-1 | F1 | METEOR | PM Overall |
+|---|---|---|---|---|---|---|---|---|---|
+| 10k | 5.33% | 9.11% | 1.75% | 0% | 2.61 | 7.20% | 8.56% | 8.95% | 13.98% |
+| **20k** ⭐ | **6.05%** | **10.65%** | **1.69%** | 0% | 2.82 | **7.98%** | **9.23%** | **10.17%** | **15.26%** |
+| 30k | 4.86% | 8.52% | 1.39% | 0% | 5.06 | 5.98% | 6.80% | 7.50% | 11.35% |
+| 40k | 3.94% | 8.10% | 0.00% | 0% | 7.55 | 5.40% | 6.46% | 7.60% | 13.35% |
 
-### v0.3 → v0.4 Kazanımları (80k karşılaştırması)
+> ⭐ En iyi checkpoint: **20k** — tüm metriklerde zirve. 30k+ sonrası model OE sorularda uzun hallüsine cevaplar üretiyor (avg len: 2.82 → 7.55), OE accuracy 40k'da %0'a düşüyor.
+
+### Training Loss (progress.csv — her 500 adımda)
+| Aşama | Step | Train Loss | Eval Loss |
+|---|---|---|---|
+| Başlangıç | 500 | 49.38 | 37.17 |
+| Erken | 2,000 | 31.62 | — |
+| Orta | 20,500 | 33.07 | 26.85 |
+| Son | 44,000 | **1.23** | **1.14** |
+
+> Loss 49→1.23 sağlıklı indi ancak 20k sonrası generation kalitesi loss'u izlemiyor — klasik overfit/embedding collapse belirtisi.
+
+> Not: CSV'de 2k→20.5k arası adım boşluğu var — eğitim o aralıkta resume edilmiş.
+
+### v0.3 → v0.4 Kazanımları (en iyi checkpoint karşılaştırması)
 | Metrik | v0.3 80k | v0.4 20k | Fark |
 |---|---|---|---|
 | Exact | 1.87% | 6.05% | **+4.18 pp (3.2x)** |
 | Y/N | 5.01% | 10.65% | **+5.64 pp (2.1x)** |
 | OE | 1.01% | 1.69% | +0.68 pp |
-| BLEU-1 | 7.37% | 10.46% | **+3.09 pp** |
-| F1 | 10.02% | 9.42% | -0.60 pp |
-| METEOR | 8.62% | 5.27% | -3.35 pp |
+| BLEU-1 | 7.37% | 7.98% | +0.61 pp |
+| F1 | 10.02% | 9.23% | -0.79 pp |
+| METEOR | 8.62% | 10.17% | **+1.55 pp** |
 
-> Not: v0.4 20k adımda v0.3'ün 80k peak'ini birçok metrikte geçiyor — batch=96 ile her adımda 24x fazla data görülüyor (96/4=24x).
+> Not: v0.4 20k adımda v0.3'ün 80k peak'ini exact/Y/N/METEOR'da geçiyor — batch=96 ile her adımda 24x fazla data görülüyor (96/4=24x).
+
+### Yanlış Checkpoint'ler
+`samples/v0.4-resource-opt/wrong_batchsize128/` — batch=128, LR=4e-5 ile yanlış resume sonucu oluşan 40k checkpoint (bozuk, kullanılmamalı). Bkz. DECISIONS.md resume collapse analizi.
 
 ### Bugfix'ler (versiyon artırmadı)
 | Tarih | Dosya | Açıklama |
