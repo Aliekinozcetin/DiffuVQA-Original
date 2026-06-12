@@ -81,7 +81,7 @@ class feature_fusion(nn.Module):
         self.bert = bert
         self.vision_encoder = build_model(args.image_encoder, resolution_after=args.image_resolution)
 
-        self.image_MLP = nn.Linear(145, 32)
+        self.image_MLP = nn.Linear(145, args.seq_len)
         self.image_MLP.apply(self.init_weights)
 
         # BERT encoder output is always 768-dim regardless of hidden_dim config.
