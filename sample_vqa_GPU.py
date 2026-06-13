@@ -19,10 +19,29 @@ from diffuvqa.rounding import denoised_fn_round
 from diffuvqa.vqa_datasets import load_data_vqa
 from diffuvqa.utils.question_classifier import classify_question, build_subtype_vocabs
 
-# from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction as _SF
 
 import time
-from collections import Counter
+
+
+def mbr_select(candidates: list) -> str:
+    """Pick the candidate with highest average BLEU-1 against all other candidates."""
+    if len(candidates) == 1:
+        return candidates[0]
+    smoothie = _SF().method4
+    scores = []
+    for i, hyp in enumerate(candidates):
+        hyp_toks = hyp.lower().split()
+        refs = [c.lower().split() for j, c in enumerate(candidates) if j != i]
+        if not hyp_toks:
+            scores.append(0.0)
+            continue
+        avg = sum(
+            sentence_bleu([ref], hyp_toks, weights=(1.0,), smoothing_function=smoothie)
+            for ref in refs
+        ) / len(refs)
+        scores.append(avg)
+    return candidates[scores.index(max(scores))]
 from diffuvqa.utils import dist_util, logger
 from functools import partial
 from basic_utils import (
@@ -350,7 +369,7 @@ def main():
                 winner = tokenizer.decode_token(sl.argmax(dim=-1).cpu())
 
             else:
-                winner = Counter(candidates).most_common(1)[0][0]
+                winner = mbr_select(candidates)
 
             word_lst_recover.append(winner)
             confidence_lst.append(round(conf.item(), 6))
