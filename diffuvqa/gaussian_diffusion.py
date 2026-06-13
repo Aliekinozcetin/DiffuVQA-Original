@@ -563,18 +563,7 @@ class GaussianDiffusion:
         reshaped_x_t = x_t
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
 
-        # Mask logits to answer vocabulary to align training with inference decoding.
-        if answer_vocab_ids is not None:
-            vocab_mask = th.full((logits.size(-1),), float('-inf'),
-                                 device=logits.device, dtype=logits.dtype)
-            vocab_mask[answer_vocab_ids] = 0.0
-            logits = logits + vocab_mask.unsqueeze(0).unsqueeze(0)
-
-        # Use PAD positions as the loss mask — PAD tokens carry no signal.
-        pad_token_id = 0
-        content_mask = (input_ids != pad_token_id).float()
-
-        loss_fct = th.nn.CrossEntropyLoss(reduction='none', ignore_index=pad_token_id)
+        loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
 
         # Extra weight on SEP token to encourage sequence termination.
@@ -582,8 +571,12 @@ class GaussianDiffusion:
             sep_mask = (input_ids == sep_token_id).float()
             decoder_nll = decoder_nll * (1.0 + (sep_weight - 1.0) * sep_mask)
 
-        decoder_nll = decoder_nll * content_mask
-        decoder_nll = decoder_nll.sum(dim=-1) / content_mask.sum(dim=-1).clamp(min=1)
+        if mask != None:
+            decoder_nll *= mask
+        if mask != None:
+            decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
+        else:
+            decoder_nll = decoder_nll.mean(dim=-1)
 
         return decoder_nll
 
@@ -665,7 +658,7 @@ class GaussianDiffusion:
         # x_start_mean, _ = model.model.module.get_ddpm_inputs_mask(image, model_kwargs)
         assert 'input_ids' in model_kwargs
         reg_loss_type = model_kwargs.pop('reg_loss_type', 'sim')
-        answer_vocab_ids = model_kwargs.pop('answer_vocab_ids', None)
+        model_kwargs.pop('answer_vocab_ids', None)  # passed by train_util but not used in training NLL
         input_ids_x = model_kwargs.pop('input_ids').to(t.device)
         input_ids_a = model_kwargs['input_a_id'].to(t.device)
         # x_start_arr = model.model.module.get_embeds(input_ids_x)
@@ -726,15 +719,13 @@ class GaussianDiffusion:
         answer_mask = mask[:, mask.size(1) // 2:].float()
         tT_loss = mean_flat(out_mean ** 2 * answer_mask.unsqueeze(-1))
 
-        # NLL with answer_vocab masking + sep_weight
+        # NLL with sep_weight to encourage sequence termination
         sep_token_id = 102
         decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a,
-                                                answer_vocab_ids=answer_vocab_ids,
                                                 sep_token_id=sep_token_id, sep_weight=1.0)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
         terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a,
-                                                 answer_vocab_ids=answer_vocab_ids,
                                                  sep_token_id=sep_token_id, sep_weight=2.0)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
