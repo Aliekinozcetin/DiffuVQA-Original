@@ -723,8 +723,8 @@ class GaussianDiffusion:
         terms["mse"] = th.where(t0_mask, t0_loss, terms["mse"])
 
         out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
-        # tT_loss: only answer positions (question half is conditioned, not denoised)
-        answer_mask = mask.float()
+        # tT_loss: only answer positions. mask is (B, 2*seq_len); x_start is (B, seq_len, D).
+        answer_mask = mask[:, mask.size(1) // 2:].float()
         tT_loss = mean_flat(out_mean ** 2 * answer_mask.unsqueeze(-1))
 
         # NLL with answer_vocab masking + sep_weight
