@@ -4,6 +4,13 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-13 — RESUME_CHECKPOINT 75k'ya set edildi
+
+**What:** `notebooks/run_diffuvqa_colab.ipynb` config hücresinde `RESUME_CHECKPOINT = f"{CHECKPOINT_PATH}/ema_0.9999_075000.pt"` yapıldı.
+**Why:** Training 75k checkpoint'ten devam edecek.
+
+---
+
 ## 2026-06-13 — hidden_dim=768'e dönüş + vocab-aligned NLL + content-weighted MSE
 
 **What:**

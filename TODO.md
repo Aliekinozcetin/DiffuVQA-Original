@@ -65,6 +65,7 @@
 - [x] `eval_DiffuVQA.py` `create_argparser().parse_args()` → `parse_known_args()[0]` — `--folder` argümanı bilinmeyen arg hatası veriyordu
 - [x] `train.py` progress.csv corruption düzeltildi — `logger.configure()` trim'den önce çağrılıyordu; CSVOutputFormat eski header'ı cache'liyordu, trim sonrası state uyumsuzluğu satırları bozuyordu. Düzeltme: trim → sonra `logger.configure()`
 - [x] Notebook `RESUME_CHECKPOINT = ""` yapıldı — eski değer `ema_0.9999_375000.pt` hardcoded kalmıştı
+- [x] Notebook `RESUME_CHECKPOINT` 75k'ya set edildi — `ema_0.9999_075000.pt`'den training devam edecek
 - [x] Notebook train hücresine `--microbatch {MICROBATCH}` eklendi
 - [x] Loss ağırlıkları yeniden ayarlandı — reg `time_weight` sabit 1.0, `lambda_reg` 0.1→0.5, NLL 2x ağırlık
 - [x] `train_util.py` `forward_backward` microbatch bug düzeltildi — `del cond['image_name']` loop içindeydi (KeyError), `loss.backward()` loop dışındaydı (sadece son microbatch gradyanı geri yayılıyordu)
