@@ -201,7 +201,7 @@ def main():
         input_ids_mask = th.broadcast_to(input_ids_mask.unsqueeze(dim=-1), x_start.shape).to(th.device("cuda"))
         # x_start = th.where(input_ids_mask == 0, x_start_mean, x_start)
         noise = th.randn_like(x_start)
-        if args.use_noising_f:
+        if getattr(args, 'use_noising_f', False):
             print("noising f")
             noise = alphas_bar_sqrt[num_steps - 1] * f + one_minus_alphas_bar_sqrt[num_steps - 1] * noise
 
