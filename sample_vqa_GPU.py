@@ -220,7 +220,7 @@ def main():
             diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
         )
 
-        sample_shape = (x_start.shape[0], x_start.shape[1], args.hidden_dim)
+        sample_shape = (x_start.shape[0], x_start.shape[1], x_start.shape[2])
 
         samples = sample_fn(
             model,
