@@ -119,7 +119,7 @@ def main():
     tokenizer = load_tokenizer(args)
     model_emb = th.nn.Embedding(
         num_embeddings=tokenizer.vocab_size,
-        embedding_dim=args.hidden_dim,
+        embedding_dim=model.word_embedding.weight.shape[1],
         _weight=model.word_embedding.weight.clone().cuda()
     ).eval().requires_grad_(False)                                                            
 
@@ -261,7 +261,7 @@ def main():
             diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
         )
 
-        sample_shape = (x_start.shape[0], x_start.shape[1], args.hidden_dim)
+        sample_shape = (x_start.shape[0], x_start.shape[1], x_start.shape[2])
 
         # answer_mask_bool sized by args.vocab_size (== model lm_head output dim)
         answer_mask_bool = th.zeros(args.vocab_size, dtype=th.bool, device=th.device("cuda"))
@@ -290,9 +290,7 @@ def main():
                 sample_shape,
                 noise=x_noised,
                 clip_denoised=args.clip_denoised,
-                denoised_fn=partial(denoised_fn_round, args, model_emb,
-                                    answer_vocab_ids=answer_vocab_ids,
-                                    get_logits=model.get_logits),
+                denoised_fn=partial(denoised_fn_round, args, model_emb),
                 model_kwargs=model_kwargs,
                 top_p=args.top_p,
                 clamp_step=args.clamp_step,

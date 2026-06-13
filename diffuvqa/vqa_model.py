@@ -81,7 +81,8 @@ class feature_fusion(nn.Module):
         self.bert = bert
         self.vision_encoder = build_model(args.image_encoder, resolution_after=args.image_resolution)
 
-        self.image_MLP = nn.Linear(145, 32)
+        _num_patches = (args.image_resolution // 32) ** 2 + 1
+        self.image_MLP = nn.Linear(_num_patches, args.seq_len)
         self.image_MLP.apply(self.init_weights)
 
         self.modality_type_embeddings = nn.Embedding(2, args.hidden_dim)

@@ -1,6 +1,5 @@
 import copy
 import functools
-import math
 import os
 
 import blobfile as bf
@@ -63,6 +62,7 @@ class TrainLoop:
             gradient_clipping=-1.,
             eval_data=None,
             eval_interval=-1,
+            answer_vocab_ids=None,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -97,6 +97,7 @@ class TrainLoop:
         self.sync_cuda = th.cuda.is_available()
 
         self.checkpoint_path = checkpoint_path  # DEBUG **
+        self.answer_vocab_ids = answer_vocab_ids
 
         self._load_and_sync_parameters()
         if self.use_fp16:
@@ -273,6 +274,8 @@ class TrainLoop:
                     k: v[i: i + self.microbatch].to(dist_util.dev())
                     for k, v in cond.items()
                 }
+                if self.answer_vocab_ids is not None:
+                    micro_cond['answer_vocab_ids'] = self.answer_vocab_ids.to(dist_util.dev())
                 t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
                 compute_losses = functools.partial(
                     self.diffusion.training_losses,
@@ -292,18 +295,14 @@ class TrainLoop:
     def forward_backward(self, image, cond):
         zero_grad(self.model_params)
         cond.pop('image_name', None)  # remove once before microbatch loop
-        # Cosine decay gate for pre_answer_loss: smooth 1→0.05 over first 300k steps.
-        # Extended from 150k: model drifts after anchor loss at 150k (observed regression).
-        # Floor of 0.05 prevents full zeroing — keeps CVAE anchor active throughout training.
-        global_step = self.step + self.resume_step
-        pre_answer_weight = max(0.05, 0.5 * (1 + math.cos(math.pi * min(global_step, 300000) / 300000)))
         for i in range(0, image.shape[0], self.microbatch):
             micro_image = image[i: i + self.microbatch].to(dist_util.dev())
             micro_cond = {
                 k: v[i: i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
             }
-            micro_cond['pre_answer_weight'] = pre_answer_weight
+            if self.answer_vocab_ids is not None:
+                micro_cond['answer_vocab_ids'] = self.answer_vocab_ids.to(dist_util.dev())
             t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
             compute_losses = functools.partial(
                 self.diffusion.training_losses,

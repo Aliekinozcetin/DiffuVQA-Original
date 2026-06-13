@@ -553,29 +553,22 @@ class GaussianDiffusion:
                 x_start_mean + std * noise
         )
 
-    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None, sep_weight=1.0):
-        '''
-        the loss of -log p(w|z_0)
-        :param x_start_mean: word embedding
-        :param sep_weight: multiplier for [SEP] token loss (use 5.0 for model-prediction path, 1.0 for x_start path)
-        :return: x_0
-        '''
-        reshaped_x_t = x_t
-        logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
+    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None,
+                              truncate=False, t=None,
+                              answer_vocab_ids=None, sep_token_id=102, sep_weight=1.0):
+        logits = get_logits(x_t)
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
-        decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
-
-        sep_mask = (input_ids == 102).float()          # 1 at [SEP] positions
-        content_mask = (mask - sep_mask).clamp(min=0) if mask is not None else None
-
-        sep_loss = (decoder_nll * sep_mask).sum(dim=-1) / sep_mask.sum(dim=-1).clamp(min=1)
-
-        if content_mask is not None:
-            content_nll = (decoder_nll * content_mask).sum(dim=-1) / content_mask.sum(dim=-1).clamp(min=1)
+        decoder_nll = loss_fct(logits.view(-1, logits.size(-1)),
+                               input_ids.view(-1)).view(input_ids.shape)
+        if sep_weight != 1.0:
+            sep_mask = (input_ids == sep_token_id).float()
+            decoder_nll = decoder_nll * (1.0 + (sep_weight - 1.0) * sep_mask)
+        if mask is not None:
+            decoder_nll *= mask
+            decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
         else:
-            content_nll = decoder_nll.mean(dim=-1)
-
-        return content_nll + sep_weight * sep_loss
+            decoder_nll = decoder_nll.mean(dim=-1)
+        return decoder_nll
 
     def _x0_helper(self, model_output, x, t):
 
@@ -655,6 +648,7 @@ class GaussianDiffusion:
         # x_start_mean, _ = model.model.module.get_ddpm_inputs_mask(image, model_kwargs)
         assert 'input_ids' in model_kwargs
         reg_loss_type = model_kwargs.pop('reg_loss_type', 'sim')
+        model_kwargs.pop('answer_vocab_ids', None)
         input_ids_x = model_kwargs.pop('input_ids').to(t.device)
         input_ids_a = model_kwargs.pop('input_a_id').to(t.device)
         # x_start_arr = model.model.module.get_embeds(input_ids_x)
@@ -683,7 +677,7 @@ class GaussianDiffusion:
         if noise is None:
             noise = th.randn_like(cond_x_start)
 
-        f = torch.cat([ddpm_input_pre, ans_emb_pre], dim=1)
+        f = torch.cat([ddpm_input_pre, ddpm_input_pre], dim=1)
         x_t = self.q_sample(cond_x_start, f, t, noise=noise, mask=mask.to(x_start.device),
                             add_information=True)  # reparametrization trick.
         get_logits = model.model.module.get_logits
@@ -694,35 +688,33 @@ class GaussianDiffusion:
         model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
 
         assert model_output.shape == target.shape == cond_x_start.shape
-        terms["mse"] = mean_flat((target - model_output) ** 2)
-        # terms["x_mse"] = mean_flat((x_start - model_output[:, model_output.size(1)//2:, :]) ** 2)
-        # terms["cond_mse"] = mean_flat(((ddpm_input_pre - model_output[:, :model_output.size(1)//2, :]) ** 2))
 
-        # pre_answer_loss anchors the CVAE branch early in training.
-        # Gate it out after step 150k: at convergence it is near-zero and contributes
-        # negligible gradient; if embedding space drifts it can spike and corrupt gradients.
-        pre_answer_weight = model_kwargs.pop('pre_answer_weight', 1.0)
-        pre_answer_loss = pre_answer_weight * mean_flat((ans_emb_pre - ans_emb) ** 2)
-        # cosine_similarity_loss = mean_flat(1 - F.cosine_similarity(ans_emb_pre, ans_emb, dim=-1))
+        # Content-weighted MSE: answer half weighted 5x over condition half
+        content_weight = 5.0
+        seq_half = target.size(1) // 2
+        mse_raw = (target - model_output) ** 2
+        weight_mask = th.ones_like(mse_raw)
+        weight_mask[:, seq_half:, :] = content_weight
+        terms["mse"] = mean_flat(mse_raw * weight_mask)
 
-        cond_model_out_x_start = self._x0_helper(model_output, x_t, t)['pred_xstart']  # predicted_xstart = model_output
+        pre_answer_loss = mean_flat((ans_emb_pre - ans_emb) ** 2)
+
+        cond_model_out_x_start = self._x0_helper(model_output, x_t, t)['pred_xstart']
         t0_mask = (t == 0)
         t0_loss = mean_flat((cond_x_start_mean - cond_model_out_x_start) ** 2)
-        # t0_loss = mean_flat((x_start_mean - cond_model_out_x_start[:, model_output.size(1)//2:, :]) ** 2)
         terms["mse"] = th.where(t0_mask, t0_loss, terms["mse"])
-        # terms["mse"] = terms["x_mse"] + terms["cond_mse"]
-        # tT_mask = (t == self.num_timesteps - 1)
-        out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
-        tT_loss = mean_flat(out_mean ** 2)
 
-        answer_mask = (input_ids_a != 0).float()  # (B, seq_len) -- ignore padding tokens
-        # x_start is anchored clean — SEP signal here is trivial, no special weight needed
-        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=1.0)
+        out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
+        answer_mask = mask[:, mask.size(1) // 2:].float()
+        tT_loss = mean_flat(out_mean ** 2 * answer_mask.unsqueeze(-1))
+
+        sep_token_id = 102
+        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a,
+                                                sep_token_id=sep_token_id, sep_weight=1.0)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
-        # model prediction path: 5x SEP weight gives real gradient toward SEP production
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a, mask=answer_mask, sep_weight=5.0)
-        # assert (model.lm_head.weight == model.word_embedding.weight).all()
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a,
+                                                  sep_token_id=sep_token_id, sep_weight=2.0)
 
         target_answer = x_start_mean.detach()
         terms["reg"] = self._compute_regularization_loss(
@@ -734,7 +726,6 @@ class GaussianDiffusion:
             reg_loss_type=reg_loss_type,
         )
 
-        # NLL 2x ağırlık: lm_head çıktısını L2 rounding ile hizalamak için
         terms["loss"] = terms["mse"] + tT_loss + pre_answer_loss + terms["nll"] + decoder_nll + terms["reg"]
 
         return terms
