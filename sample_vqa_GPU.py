@@ -193,7 +193,6 @@ def main():
         # x_start_mean, _ = model.get_ddpm_inputs_mask(image, cond)
         fuse_feats, _ = model.get_ddpm_input(image, cond)
         f = torch.cat([fuse_feats, fuse_feats], dim=1)
-        print(fuse_feats.shape)
         x_start = torch.cat([fuse_feats, input_emb], dim=1)
         # input_ids_mask = cond.pop('input_mask')
         input_ids_mask_ori = input_ids_mask
@@ -241,7 +240,6 @@ def main():
         #
         a_shape = sample.size(1) // 2
         sample = sample[:, a_shape:, :]
-        print(sample.shape)
         logits = model.get_logits(sample)  # bsz, seqlen, vocab
         cands = th.topk(logits, k=1, dim=-1)  # th.topk = get_knn
 
@@ -250,8 +248,6 @@ def main():
         word_lst_source = []
         qid_lst = []
         img_id_lst = []
-
-        print(cands.indices)
         for seq, input_mask in zip(cands.indices, input_ids_mask_ori):
             # len_x = args.seq_len * args.batch_size - th.sum(input_mask).item()
             seq = seq.to(th.device("cpu"))
