@@ -4,6 +4,18 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-13 — Sampling bug fix'leri + notebook eval yolu güncellendi
+
+**What:**
+- `sample_shape`: `args.hidden_dim(64)` → `x_start.shape[2](768)` — sampling JSONL yazılmıyordu
+- `use_noising_f`: `args.use_noising_f` → `getattr(args, 'use_noising_f', False)` — AttributeError
+- Tensor print'leri kaldırıldı (`fuse_feats.shape`, `sample.shape`, `cands.indices`)
+- Notebook `MANUAL_EVAL_JSONL`: `ema_0.9999_500000.jsonl` → `ema_0.9999_150000.pt.samples/seed105_step0.jsonl`
+
+**Why:** `hidden_dim=64` config değeri `x_start`'ın gerçek boyutundan (768) farklı olduğu için `sample_fn` yanlış shape ile başlatılıyor, sessizce çıkıyordu. `use_noising_f` config.json'da tanımlı değil. Eval hücresi eski 500k checkpoint yolunu gösteriyordu.
+
+---
+
 ## 2026-06-12 — seq_len 64→32, image_resolution 384→224, eval_interval 5000→25000
 
 **What:**

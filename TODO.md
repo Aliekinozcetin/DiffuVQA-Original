@@ -132,8 +132,12 @@
 - [x] `image_MLP` giriş boyutu dinamik: 145 hardcoded → `(image_resolution//32)^2+1`; çıkış: 32 → `args.seq_len`
 - [x] `eval_interval` 1000/5000 → 25000, `image_resolution` 384 → 224 — training hız optimizasyonu (~4x yavaşlık giderildi)
 - [x] `seq_len` 64 → 32 — Kvasir-VQA cevapları 1-4 kelime, 32 token yeterli; attention O(seq_len²) ~3x hız kazanımı
-- [ ] 50k sanity check: separator collapse yok mu? boş < %20, EM > %0.5 hedefi
-- [ ] 150k final analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
-- [ ] 100k analiz: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
+- [x] `sample_vqa_GPU.py` `sample_shape` fix — `args.hidden_dim(64)` → `x_start.shape[2](768)`; sampling JSONL dosyası yazılmıyordu
+- [x] `sample_vqa_GPU.py` `use_noising_f` AttributeError — `getattr(args, 'use_noising_f', False)` ile güvenli erişim
+- [x] `sample_vqa_GPU.py` tensor print'leri kaldırıldı — `fuse_feats.shape`, `sample.shape`, `cands.indices` her batch'te log dolduruyordu
+- [x] Notebook `MANUAL_EVAL_JSONL` yolu güncellendi — `ema_0.9999_500000.jsonl` → `ema_0.9999_150000.pt.samples/seed105_step0.jsonl`
+- [ ] 150k sonuç analizi: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
+- [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
+- [ ] SLAKE dataset için de indirme hücresi ekle
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle
