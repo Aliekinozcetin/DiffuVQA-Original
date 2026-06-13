@@ -85,39 +85,35 @@ class feature_fusion(nn.Module):
         self.image_MLP = nn.Linear(_num_patches, args.seq_len)
         self.image_MLP.apply(self.init_weights)
 
-        # BERT encoder output is always 768-dim regardless of hidden_dim config.
-        # Only the final output of feature_fusion projects down to hidden_dim.
-        _enc_dim = 768
-
-        self.modality_type_embeddings = nn.Embedding(2, _enc_dim)
+        self.modality_type_embeddings = nn.Embedding(2, args.hidden_dim)
         self.modality_type_embeddings.apply(self.init_weights)
 
         ###########  feature proj ###############
         self.image_feature_proj = nn.Sequential(
             nn.Linear(args.input_image_embed_size, args.extend_hidden_size),
             nn.GELU(),
-            nn.Linear(args.extend_hidden_size, _enc_dim),
+            nn.Linear(args.extend_hidden_size, args.hidden_dim),
         )
         self.image_feature_proj.apply(self.init_weights)
 
         self.question_feature_proj = nn.Sequential(
-            nn.Linear(_enc_dim, args.extend_hidden_size),
+            nn.Linear(args.hidden_dim, args.extend_hidden_size),
             nn.GELU(),
-            nn.Linear(args.extend_hidden_size, _enc_dim),
+            nn.Linear(args.extend_hidden_size, args.hidden_dim),
         )
         self.question_feature_proj.apply(self.init_weights)
 
         self.feature_proj = nn.Sequential(
-            nn.Linear(_enc_dim, args.extend_hidden_size),
+            nn.Linear(args.hidden_dim, args.extend_hidden_size),
             nn.GELU(),
-            nn.Linear(args.extend_hidden_size, _enc_dim)
+            nn.Linear(args.extend_hidden_size, args.hidden_dim)
         )
         self.feature_proj.apply(self.init_weights)
 
-        self.layer_norm = LayerNorm(_enc_dim)
+        self.layer_norm = LayerNorm(args.hidden_dim)
         self.layer_norm.apply(self.init_weights)
 
-        self.cvae = CVAE(_enc_dim)
+        self.cvae = CVAE(args.hidden_dim)
         self.cvae.apply(self.init_weights)
 
     def forward(self, image, cond):

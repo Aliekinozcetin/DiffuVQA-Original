@@ -553,7 +553,8 @@ class GaussianDiffusion:
                 x_start_mean + std * noise
         )
 
-    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None):
+    def _token_discrete_loss(self, x_t, get_logits, input_ids, mask=None, truncate=False, t=None,
+                              answer_vocab_ids=None, sep_token_id=102, sep_weight=1.0):
         '''
         the loss of -log p(w|z_0)
         :param x_start_mean: word embedding
@@ -561,12 +562,27 @@ class GaussianDiffusion:
         '''
         reshaped_x_t = x_t
         logits = get_logits(reshaped_x_t)  # bsz, seqlen, vocab
+
+        # Mask logits to answer vocabulary to align training with inference decoding.
+        # SEP/PAD kept in vocab (answer_vocab_ids contains them already).
+        if answer_vocab_ids is not None:
+            vocab_mask = th.full((logits.size(-1),), float('-inf'),
+                                 device=logits.device, dtype=logits.dtype)
+            vocab_mask[answer_vocab_ids] = 0.0
+            logits = logits + vocab_mask.unsqueeze(0).unsqueeze(0)
+
         loss_fct = th.nn.CrossEntropyLoss(reduction='none')
         decoder_nll = loss_fct(logits.view(-1, logits.size(-1)), input_ids.view(-1)).view(input_ids.shape)
+
+        # Extra weight on SEP token to encourage sequence termination.
+        if sep_weight != 1.0:
+            sep_mask = (input_ids == sep_token_id).float()
+            decoder_nll = decoder_nll * (1.0 + (sep_weight - 1.0) * sep_mask)
+
         if mask != None:
             decoder_nll *= mask
         if mask != None:
-            decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1)
+            decoder_nll = decoder_nll.sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
         else:
             decoder_nll = decoder_nll.mean(dim=-1)
 
@@ -650,6 +666,7 @@ class GaussianDiffusion:
         # x_start_mean, _ = model.model.module.get_ddpm_inputs_mask(image, model_kwargs)
         assert 'input_ids' in model_kwargs
         reg_loss_type = model_kwargs.pop('reg_loss_type', 'sim')
+        answer_vocab_ids = model_kwargs.pop('answer_vocab_ids', None)
         input_ids_x = model_kwargs.pop('input_ids').to(t.device)
         input_ids_a = model_kwargs['input_a_id'].to(t.device)
         # x_start_arr = model.model.module.get_embeds(input_ids_x)
@@ -689,7 +706,14 @@ class GaussianDiffusion:
         model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
 
         assert model_output.shape == target.shape == cond_x_start.shape
-        terms["mse"] = mean_flat((target - model_output) ** 2)
+
+        # Content-weighted MSE: answer positions 5x vs question positions.
+        content_weight = 5.0
+        seq_half = target.size(1) // 2
+        mse_raw = (target - model_output) ** 2
+        weight_mask = th.ones_like(mse_raw)
+        weight_mask[:, seq_half:, :] = content_weight
+        terms["mse"] = mean_flat(mse_raw * weight_mask)
 
         pre_answer_loss = mean_flat((ans_emb_pre - ans_emb) ** 2)
 
@@ -699,12 +723,20 @@ class GaussianDiffusion:
         terms["mse"] = th.where(t0_mask, t0_loss, terms["mse"])
 
         out_mean, _, _ = self.q_mean_variance(x_start, th.LongTensor([self.num_timesteps - 1]).to(x_start.device))
-        tT_loss = mean_flat(out_mean ** 2)
+        # tT_loss: only answer positions (question half is conditioned, not denoised)
+        answer_mask = mask.float()
+        tT_loss = mean_flat(out_mean ** 2 * answer_mask.unsqueeze(-1))
 
-        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a)  # embedding regularization
+        # NLL with answer_vocab masking + sep_weight
+        sep_token_id = 102
+        decoder_nll = self._token_discrete_loss(x_start, get_logits, input_ids_a,
+                                                answer_vocab_ids=answer_vocab_ids,
+                                                sep_token_id=sep_token_id, sep_weight=1.0)
 
         model_out_x_start = cond_model_out_x_start[:, cond_model_out_x_start.size(1) // 2:, :]
-        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a)  # x_0->model_out_x_start
+        terms["nll"] = self._token_discrete_loss(model_out_x_start, get_logits, input_ids_a,
+                                                 answer_vocab_ids=answer_vocab_ids,
+                                                 sep_token_id=sep_token_id, sep_weight=2.0)
         # assert (model.lm_head.weight == model.word_embedding.weight).all()
 
         target_answer = x_start_mean.detach()

@@ -101,6 +101,28 @@ def main():
 
     print('#'*30, 'size of vocab', args.vocab_size)
 
+    # Build answer vocabulary from train split for vocab-aligned NLL.
+    # [CLS] and [PAD] excluded; [SEP] included (sequence-end signal).
+    import json as _json
+    _answer_vocab_set = set()
+    _train_jsonl = os.path.join(args.data_dir, 'train.jsonl')
+    if os.path.exists(_train_jsonl):
+        with open(_train_jsonl, 'r') as _f:
+            for _line in _f:
+                _ans = _json.loads(_line).get('answer', '')
+                if _ans:
+                    _ids = tokenizer.tokenizer(
+                        _ans, add_special_tokens=True,
+                        padding='max_length', max_length=args.seq_len,
+                        truncation=True
+                    )['input_ids']
+                    _answer_vocab_set.update(_ids)
+    _answer_vocab_set.discard(None)
+    _answer_vocab_set.discard(tokenizer.tokenizer.cls_token_id)
+    _answer_vocab_set.discard(tokenizer.tokenizer.pad_token_id)
+    answer_vocab_ids = torch.tensor(sorted(_answer_vocab_set), dtype=torch.long)
+    logger.log(f'### Answer vocab size: {len(answer_vocab_ids)} / {args.vocab_size}')
+
     logger.log("### Creating model and diffusion...")
     print("use{}".format(args.model))
     model, diffusion = create_model_and_diffusion(args=args)
@@ -142,6 +164,7 @@ def main():
         gradient_clipping=args.gradient_clipping,
         eval_data=data_valid,
         eval_interval=args.eval_interval,
+        answer_vocab_ids=answer_vocab_ids,
     ).run_loop(args)
 
 if __name__ == "__main__":

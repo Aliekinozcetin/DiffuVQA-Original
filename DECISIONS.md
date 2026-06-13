@@ -4,6 +4,20 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-13 — hidden_dim=768'e dönüş + vocab-aligned NLL + content-weighted MSE
+
+**What:**
+- `config.json`: `hidden_dim=768`, `hidden_size=768`, `batch_size=4`, `weight_decay=0.01`, `gradient_clipping=0.75`
+- `vqa_model.py`: `feature_fusion` içindeki `_enc_dim=768` sabiti → `args.hidden_dim` (768 ile aynı anlama gelir, config-driven)
+- `gaussian_diffusion.py`: Content-weighted MSE (content_weight=5.0), tT_loss answer_mask, answer_vocab NLL masking, sep_weight=2.0 (terms["nll"]), sep_weight=1.0 (decoder_nll)
+- `train.py`: answer_vocab_ids hesaplama bloğu eklendi (train.jsonl'dan, [CLS]/[PAD] hariç)
+- `train_util.py`: answer_vocab_ids parametresi + forward_backward/forward_only injection
+- Notebook: `TRAIN_BATCH_SIZE=4`, `HIDDEN_DIM=768`
+
+**Why:** hidden_dim=64 denemesi başarısız — mimari boyut uyumsuzlukları cascade hatalara yol açtı. En iyi sonucumuz (EM %0.71 @ 40k) vocab-aligned NLL + content-weighted MSE konfigürasyonundaydı. CIGN zaten orijinal `[ddpm_input_pre, ddpm_input_pre]`'de. hidden_dim=768 + kanıtlanmış loss konfigürasyonu ile sıfırdan training.
+
+---
+
 ## 2026-06-13 — Sampling bug fix'leri + notebook eval yolu güncellendi
 
 **What:**

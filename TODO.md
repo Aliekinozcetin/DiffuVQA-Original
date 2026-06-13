@@ -136,6 +136,10 @@
 - [x] `sample_vqa_GPU.py` `use_noising_f` AttributeError — `getattr(args, 'use_noising_f', False)` ile güvenli erişim
 - [x] `sample_vqa_GPU.py` tensor print'leri kaldırıldı — `fuse_feats.shape`, `sample.shape`, `cands.indices` her batch'te log dolduruyordu
 - [x] Notebook `MANUAL_EVAL_JSONL` yolu güncellendi — `ema_0.9999_500000.jsonl` → `ema_0.9999_150000.pt.samples/seed105_step0.jsonl`
+- [x] `hidden_dim=768`'e dönüş — `config.json` + notebook + `vqa_model.py` feature_fusion `_enc_dim` sabiti kaldırıldı
+- [x] `batch_size=4`, `weight_decay=0.01`, `gradient_clipping=0.75` restore edildi
+- [x] Content-weighted MSE (5x answer), tT_loss answer_mask, answer_vocab NLL masking, sep_weight=2.0 eklendi (`gaussian_diffusion.py`)
+- [x] `train.py` answer_vocab_ids hesaplama + `train_util.py` injection eklendi
 - [ ] 150k sonuç analizi: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle

@@ -62,6 +62,7 @@ class TrainLoop:
             gradient_clipping=-1.,
             eval_data=None,
             eval_interval=-1,
+            answer_vocab_ids=None,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -96,6 +97,7 @@ class TrainLoop:
         self.sync_cuda = th.cuda.is_available()
 
         self.checkpoint_path = checkpoint_path  # DEBUG **
+        self.answer_vocab_ids = answer_vocab_ids
 
         self._load_and_sync_parameters()
         if self.use_fp16:
@@ -272,6 +274,8 @@ class TrainLoop:
                     k: v[i: i + self.microbatch].to(dist_util.dev())
                     for k, v in cond.items()
                 }
+                if self.answer_vocab_ids is not None:
+                    micro_cond['answer_vocab_ids'] = self.answer_vocab_ids.to(dist_util.dev())
                 t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
                 compute_losses = functools.partial(
                     self.diffusion.training_losses,
@@ -297,6 +301,8 @@ class TrainLoop:
                 k: v[i: i + self.microbatch].to(dist_util.dev())
                 for k, v in cond.items()
             }
+            if self.answer_vocab_ids is not None:
+                micro_cond['answer_vocab_ids'] = self.answer_vocab_ids.to(dist_util.dev())
             t, weights = self.schedule_sampler.sample(micro_image.shape[0], dist_util.dev())
             compute_losses = functools.partial(
                 self.diffusion.training_losses,
