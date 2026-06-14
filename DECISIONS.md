@@ -4,6 +4,17 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-14 — MBR decoding (n=5) + clamp_step=20 sabitlendi
+
+**What:**
+- `sample_vqa_GPU.py`: `mbr_select()` fonksiyonu eklendi (BLEU-1 consensus). `n_samples > 1` olduğunda her örnek için n kez `sample_fn` çağrılır (seed2+i ile farklı noise), MBR ile en tutarlı cevap seçilir. Çıktı JSONL'e `all_candidates` ve `selection_method="mbr"` eklendi.
+- Out path: `n_samples > 1` ise `seed{seed2}_step{clamp_step}_mbr{n_samples}.jsonl` — eski n=1 dosyasıyla çakışmaz, Drive'daki eski dosyayı silmeye gerek yok.
+- Notebook: `CLAMP_CONFIG="C"` (clamp_first=False, clamp_step=20), `N_SAMPLES=5` sabitlendi.
+
+**Why:** Clamp grid search sonucu: step=20 tüm metriklerde önde (F1 %5.41, BLEU-1 %4.94, ROUGE-L %5.13). MBR n=5 ile consensus decoding ek EM/F1 artışı bekleniyor.
+
+---
+
 ## 2026-06-14 — clamp_first CLI argümanı + notebook clamp grid search
 
 **What:**

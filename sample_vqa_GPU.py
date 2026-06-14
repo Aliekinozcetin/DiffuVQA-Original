@@ -21,7 +21,7 @@ from transformers import set_seed
 from diffuvqa.rounding import denoised_fn_round
 from diffuvqa.vqa_datasets import load_data_vqa
 
-# from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 import time
 from diffuvqa.utils import dist_util, logger
@@ -55,6 +55,29 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
         t2 = (i + 1) / num_diffusion_timesteps
         betas.append(min(1 - alpha_bar(t2) / alpha_bar(t1), max_beta))
     return np.array(betas)
+
+
+def mbr_select(candidates):
+    """Minimum Bayes Risk: BLEU-1 consensus üzerinden en tutarlı cevabı seç."""
+    non_empty = [c for c in candidates if c.strip()]
+    if len(non_empty) == 0:
+        return candidates[0] if candidates else ""
+    if len(non_empty) == 1:
+        return non_empty[0]
+    smooth = SmoothingFunction().method1
+    best_idx, best_score = 0, -1
+    for i, ci in enumerate(non_empty):
+        ci_tok = ci.lower().split()
+        total = sum(
+            sentence_bleu([cj.lower().split()], ci_tok,
+                          weights=(1.0, 0, 0, 0),
+                          smoothing_function=smooth)
+            for j, cj in enumerate(non_empty) if i != j
+        )
+        avg = total / (len(non_empty) - 1)
+        if avg > best_score:
+            best_score, best_idx = avg, i
+    return non_empty[best_idx]
 
 
 def create_argparser():
@@ -149,7 +172,10 @@ def main():
     out_path = os.path.join(out_dir, f"ema{model_base_name.split('.ema')[1]}.samples")
     if not os.path.isdir(out_path):
         os.mkdir(out_path)
-    out_path = os.path.join(out_path, f"seed{args.seed2}_step{args.clamp_step}.jsonl")
+    _suffix = f"seed{args.seed2}_step{args.clamp_step}"
+    if args.n_samples > 1:
+        _suffix += f"_mbr{args.n_samples}"
+    out_path = os.path.join(out_path, f"{_suffix}.jsonl")
 
     print("out_path:", out_path)
     print("batch_size:", args.batch_size)
@@ -221,52 +247,65 @@ def main():
 
         sample_shape = (x_start.shape[0], x_start.shape[1], x_start.shape[2])
 
-        samples = sample_fn(
-            model,
-            sample_shape,
-            noise=x_noised,
-            clip_denoised=args.clip_denoised,
-            denoised_fn=partial(denoised_fn_round, args, model_emb),
-            model_kwargs=model_kwargs,
-            top_p=args.top_p,
-            clamp_step=args.clamp_step,
-            clamp_first=args.clamp_first,
-            mask=input_ids_mask,
-            x_start=x_start,
-            gap=step_gap
-        )
+        # n_samples > 1: MBR decoding — her örnek için n_samples candidate üret
+        batch_size = x_start.shape[0]
+        all_candidates = [[] for _ in range(batch_size)]  # [örnek_idx] = [cevap1, ...]
 
-        sample = samples[-1]
-        #
-        a_shape = sample.size(1) // 2
-        sample = sample[:, a_shape:, :]
-        logits = model.get_logits(sample)  # bsz, seqlen, vocab
-        cands = th.topk(logits, k=1, dim=-1)  # th.topk = get_knn
+        for s_idx in range(args.n_samples):
+            # Her sample farklı noise ile başlasın
+            th.manual_seed(args.seed2 + s_idx)
+            noise_s = th.randn_like(x_start)
+            if getattr(args, 'use_noising_f', False):
+                noise_s = alphas_bar_sqrt[num_steps - 1] * f + one_minus_alphas_bar_sqrt[num_steps - 1] * noise_s
+            x_noised_s = th.where(input_ids_mask == 0, x_start, noise_s)
 
+            samples = sample_fn(
+                model,
+                sample_shape,
+                noise=x_noised_s,
+                clip_denoised=args.clip_denoised,
+                denoised_fn=partial(denoised_fn_round, args, model_emb),
+                model_kwargs=model_kwargs,
+                top_p=args.top_p,
+                clamp_step=args.clamp_step,
+                clamp_first=args.clamp_first,
+                mask=input_ids_mask,
+                x_start=x_start,
+                gap=step_gap
+            )
+
+            sample = samples[-1]
+            a_shape = sample.size(1) // 2
+            sample = sample[:, a_shape:, :]
+            logits = model.get_logits(sample)
+            cands = th.topk(logits, k=1, dim=-1)
+
+            for b_idx, seq in enumerate(cands.indices):
+                tokens = tokenizer.decode_token(seq.to(th.device("cpu")))
+                all_candidates[b_idx].append(tokens)
+
+        # MBR seçimi (n_samples=1 ise doğrudan tek cevap)
         word_lst_recover = []
+        for cand_list in all_candidates:
+            word_lst_recover.append(mbr_select(cand_list) if args.n_samples > 1 else cand_list[0])
+
         word_lst_ref = []
         word_lst_source = []
-        qid_lst = []
-        img_id_lst = []
-        for seq, input_mask in zip(cands.indices, input_ids_mask_ori):
-            # len_x = args.seq_len * args.batch_size - th.sum(input_mask).item()
-            seq = seq.to(th.device("cpu"))
-            len_x = args.seq_len
-            tokens = tokenizer.decode_token(seq)
-            word_lst_recover.append(tokens)
-
         for seq, input_mask in zip(input_ids_x, input_ids_mask_ori):
-            # len_x = args.seq_len - sum(input_mask).item()
             seq = seq.to(th.device("cpu"))
             len_x = args.seq_len
             word_lst_source.append(tokenizer.decode_token(seq[:len_x]))
             word_lst_ref.append(tokenizer.decode_token(seq[len_x:]))
 
         fout = open(out_path, 'a')
-        for (recov, ref, src, image_name) in zip(word_lst_recover, word_lst_ref, word_lst_source, image_name):
-            print(json.dumps(
-                {"image_name": image_name, "question": src, "reference_answer": ref, "generate_answer": recov}),
-                  file=fout)
+        for i, (recov, ref, src, img_name) in enumerate(
+                zip(word_lst_recover, word_lst_ref, word_lst_source, image_name)):
+            entry = {"image_name": img_name, "question": src,
+                     "reference_answer": ref, "generate_answer": recov}
+            if args.n_samples > 1:
+                entry["all_candidates"] = all_candidates[i]
+                entry["selection_method"] = "mbr"
+            print(json.dumps(entry), file=fout)
         fout.close()
         # break
         #
