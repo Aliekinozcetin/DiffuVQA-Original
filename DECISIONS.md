@@ -4,6 +4,20 @@ Decisions are listed newest-first.
 
 ---
 
+## 2026-06-14 — clamp_first CLI argümanı + notebook clamp grid search
+
+**What:**
+- `sample_vqa_GPU.py`: `clamp_first=True` hardcoded → `args.clamp_first` (argparse default `True`, `_keep` listesine eklendi)
+- Notebook sample hücresi: `CLAMP_CONFIG = "A/B/C"` değişkeniyle 3 config arasında geçiş yapılıyor:
+  - A: `clamp_first=True, clamp_step=0` (baseline)
+  - B: `clamp_first=False, clamp_step=50` (Diffusion-LM önerisi)
+  - C: `clamp_first=False, clamp_step=20`
+- Her config çıktısı ayrı klasöre yazılıyor (`clamp_baseline/`, `clamp_f0_s50/`, `clamp_f0_s20/`)
+
+**Why:** Training'e dokunmadan inference-time optimizasyon. En iyi clamp config belirlendikten sonra MBR (n=5) uygulanacak.
+
+---
+
 ## 2026-06-13 — RESUME_CHECKPOINT 75k'ya set edildi
 
 **What:** `notebooks/run_diffuvqa_colab.ipynb` config hücresinde `RESUME_CHECKPOINT = f"{CHECKPOINT_PATH}/ema_0.9999_075000.pt"` yapıldı.

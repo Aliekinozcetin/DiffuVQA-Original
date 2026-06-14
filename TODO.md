@@ -142,6 +142,8 @@
 - [x] Content-weighted MSE (5x answer), tT_loss answer_mask, answer_vocab NLL masking, sep_weight=2.0 eklendi (`gaussian_diffusion.py`)
 - [x] `train.py` answer_vocab_ids hesaplama + `train_util.py` injection eklendi
 - [ ] 150k sonuç analizi: EM > %1, F1 > %8, cevap uzunluğu 2-4 hedefi
+- [ ] Clamp grid search: Config A/B/C çalıştır, en iyi EM/F1'i bul
+- [ ] En iyi clamp config ile MBR (n=5) uygula
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
 - [ ] SLAKE dataset için de indirme hücresi ekle
 - [ ] `pycocoevalcap` CIDEr metriğinin güncel NLTK versiyonuyla çalıştığını doğrula
