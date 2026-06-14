@@ -77,7 +77,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, alpha_bar, max_beta=0.999):
 
 def create_argparser():
     defaults = dict(model_path='', step=2500, out_dir='', top_p=0, n_samples=1)
-    decode_defaults = dict(split='test', clamp_step=200, seed2=105, clip_denoised=False)
+    decode_defaults = dict(split='test', clamp_step=200, seed2=105, clip_denoised=False, clamp_first=True)
     defaults.update(load_defaults_config())
     defaults.update(decode_defaults)
     parser = argparse.ArgumentParser()
@@ -100,7 +100,7 @@ def main():
     training_args['batch_size'] = args.batch_size
     # Preserve CLI-provided sampling args that training_args.json would overwrite
     _keep = {k: args.__dict__[k] for k in ('model_path', 'out_dir', 'step', 'split',
-                                             'seed2', 'clamp_step', 'top_p',
+                                             'seed2', 'clamp_step', 'clamp_first', 'top_p',
                                              'data_dir', 'image_dir')
              if k in args.__dict__}
     args.__dict__.update(training_args)
@@ -313,7 +313,7 @@ def main():
                 model_kwargs=model_kwargs,
                 top_p=args.top_p,
                 clamp_step=args.clamp_step,
-                clamp_first=True,
+                clamp_first=args.clamp_first,
                 mask=input_ids_mask,
                 x_start=x_start,
                 gap=step_gap
