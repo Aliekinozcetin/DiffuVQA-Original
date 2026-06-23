@@ -1,2 +1,0 @@
-model_name,dataset_name,export_date,overall_accuracy,yes_no_accuracy,open_ended_accuracy,bleu_1_score,rouge_l_score,meteor_score,cider_score,bert_score,f1_score,additional_info,training_steps,Sample Folder,Total Samples
-DiffuVQA-Original,Kvasir_VQA,2026-06-05 15:27:23,0.012572205232755691,0.025032938076416336,0.008241758241758242,0.04466080635935305,0.05937505275456629,0.03959004086647644,0.051434082344301614,0.0,0.06461571202571255,Empty: 1360 (23.1%),500000,/content/drive/MyDrive/DiffuVQA-Original/samples/kvasir_vqa/bert/lr1e-05,5886

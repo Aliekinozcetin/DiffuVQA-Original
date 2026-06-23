@@ -1,0 +1,266 @@
+% ============================================================
+%  DiffGenMed-VQA — Poster Sunum Çalışma Notları
+%  CENG416 Graduation Poster — Hazırlık Notları
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{DiffGenMed-VQA — Poster Sunum Çalışma Notları}\\
+\large CENG416 Graduation Project}
+\author{Ali Ekin Özçetin \and Ahmet Barış Özel \and Mert Güner\\
+\small Danışman: Prof.\ Dr.\ Aytuğ Onan}
+\date{Haziran 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Loss Fonksiyonu}
+% ============================================================
+
+\subsection{Toplam Loss}
+
+DiffGenMed-VQA modelinin eğitiminde kullanılan toplam kayıp fonksiyonu:
+
+\[
+\mathcal{L} = \mathcal{L}_{\text{MSE}} + \mathcal{L}_{tT} + \mathcal{L}_{\text{pre}} + \mathcal{L}_{\text{NLL}} + \mathcal{L}_{\text{dec-NLL}} + \mathcal{L}_{\text{reg}}
+\]
+
+\subsection{Bileşenler}
+
+\begin{enumerate}
+
+\item \textbf{MSE Loss (Diffusion Core)}\\
+Model çıktısı ile hedef gürültü/embedding arasındaki Mean Squared Error.
+Difüzyon sürecinin temel loss'u — her timestep $t$ için denoised embedding'in
+ne kadar doğru tahmin edildiğini ölçer.
+\[
+\mathcal{L}_{\text{MSE}} = \mathbb{E}\left[\|\hat{x}_0 - x_0\|^2\right]
+\]
+
+\item \textbf{tT Loss (Boundary Constraint)}\\
+$t = T$ (en gürültülü adım) anında cevap embedding'lerinin sıfır ortalamaya
+yakın olmasını zorlar. Difüzyon sürecinin başlangıç koşulunu sabitler.
+\[
+\mathcal{L}_{tT} = \mathbb{E}\left[\|\bar{x}_T \cdot \mathbf{m}_{\text{ans}}\|^2\right]
+\]
+
+\item \textbf{Pre-Answer Loss}\\
+Modelin ilk cevap embedding tahmini (\texttt{ans\_emb\_pre}) ile gerçek cevap
+embedding'i arasındaki MSE. Erken adımlarda embedding uzayını yönlendirir.
+\[
+\mathcal{L}_{\text{pre}} = \|\hat{e}_{\text{ans}}^{\text{pre}} - e_{\text{ans}}\|^2
+\]
+
+\item \textbf{NLL — Negative Log-Likelihood}\\
+$t = 0$'da modelin tahmin ettiği token dağılımı üzerinden CrossEntropy.
+Sürekli embedding → ayrık token geçişini (rounding) denetler.
+\[
+\mathcal{L}_{\text{NLL}} = -\sum_i \log p(w_i \mid \hat{z}_0)
+\]
+
+\item \textbf{Decoder NLL}\\
+Gerçek $x_{\text{start}}$ (ground truth embedding) üzerinden hesaplanan
+CrossEntropy. NLL'nin referans versiyonu — embedding rounding kalitesini ölçer.
+
+\item \textbf{Reg Loss (Regularization)}\\
+Üç moddan biri seçilebilir (\texttt{reg\_loss\_type}):
+\begin{itemize}
+  \item \texttt{sim} (varsayılan): Cosine similarity kaybı — pred ve target
+        embedding ortalamaları arasındaki anlamsal benzerlik
+  \item \texttt{struct}: KL divergence — dağılım yapısal uyumu
+  \item \texttt{len}: MSE — cevap uzunluk tahmini
+\end{itemize}
+
+\end{enumerate}
+
+% ============================================================
+\section{2. Kolon — Sunum Bilgileri}
+% ============================================================
+
+\subsection{Araştırma Sorusu}
+
+Posterimizin odak sorusu:
+\begin{quote}
+\textit{Can a diffusion-based generative model produce accurate free-form answers to medical visual questions?}
+\end{quote}
+
+\subsection{Sistem Mimarisi — Bilmen Gerekenler}
+
+\begin{itemize}
+  \item \textbf{CLIP ViT-B/32}: Görüntüyü 512 boyutlu vektöre encode eder. ImageNet üzerinde pre-train edilmiş, sıfır-shot görsel anlama kapasitesi var.
+  \item \textbf{BERT / BioBERT / PubMedBERT}: Soruyu 768 boyutlu vektöre encode eder. Üçü de aynı mimari, fark sadece pre-training verisi.
+  \item \textbf{Cross-Modal Fusion ($\alpha, \beta, \theta$)}: Görsel ve dil akışlarını dinamik ağırlıklarla hizalar. Sabit ağırlık değil, öğrenilen parametreler.
+  \item \textbf{CIGN (Conditional Information Gaussian Noising)}: İleri difüzyonda gürültü, multimodal fusion embedding $f$ ile yanlılaştırılır:
+  \[
+    \tilde{\varepsilon} = \sqrt{\bar{\alpha}_t} \cdot f + \sqrt{1-\bar{\alpha}_t} \cdot \varepsilon
+  \]
+  Geri difüzyonda ise $[\text{soru+görsel} \mid \text{cevap}]$ concatenation ile koşullandırılır. \textbf{İki yönlü conditioning} bu yüzden.
+  \item \textbf{Conditional diffusion kullanıyoruz}: Evet doğru, ancak klasik classifier-free guidance değil — CIGN ile hem ileri hem geri süreç koşullu.
+\end{itemize}
+
+\subsection{Temel Hiperparametreler}
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  Parametre & Değer \\
+  \midrule
+  $T$ (diffusion adımı) & 2000 \\
+  $d$ (hidden dim) & 768 \\
+  Attention heads & 8 \\
+  $L$ (max cevap uzunluğu) & 32 token \\
+  Learning rate & $1 \times 10^{-5}$ \\
+  Eğitim adımı & 150k \\
+  Gürültü çizelgesi & sqrt \\
+  Örnekleme & DDIM, 200 adım \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Neden Sonuçlar Düşük Görünüyor — Savunma Argümanları}
+
+\textbf{Argüman 1: Tam maskeleme (en güçlü argüman)}
+
+Bizim yaklaşımımızda cevap pozisyonları \textbf{tamamen saf Gaussian gürültüyle} maskeleniyor:
+\begin{verbatim}
+x_noised = where(mask == 0, x_start, noise)
+\end{verbatim}
+Model, cevap hakkında hiçbir başlangıç bilgisi olmadan sıfırdan üretiyor.
+DiffuSeq gibi rakip çalışmalar \textit{partial noising} kullanır — cevaba ipucu bırakır.
+Biz bırakmıyoruz. Bu daha dürüst ama yapısal olarak daha zor bir kurulum.
+
+\textbf{Argüman 2: Kısa cevap zorluğu}
+
+Kvasir-VQA'nın ortalama cevap uzunluğu $\approx 2.9$ token. Sürekli embedding uzayında bu kadar kısa cevaplar rounding hatasına çok duyarlı — küçük embedding kayması yanlış token'a düşürebilir.
+
+\textbf{Argüman 3: BERTScore semantik kanıtı}
+
+Kelime eşleşme metrikleri (BLEU, ROUGE) düşük görünse de BERTScore üç modelde de 0.80 üzerinde:
+\begin{center}
+\begin{tabular}{lc}
+  \toprule
+  Encoder & BERTScore \\
+  \midrule
+  BERT-Base  & 0.801 \\
+  BioBERT    & 0.850 \\
+  PubMedBERT & 0.871 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+Bu, modelin ürettiği cevapların kelime kelime eşleşmese bile \textbf{semantik olarak doğru bölgede} olduğunu kanıtlar. Model anlamı yakalıyor, tam token'ı bulamıyor — bu sürekli embedding uzayının beklenen trade-off'u.
+
+\subsection{Bar Chart Metrikleri — Ne Anlıyor}
+
+\begin{itemize}
+  \item \textbf{BLEU-1}: N-gram kelime örtüşmesi (unigram). Kısa cevaplarda çok katı.
+  \item \textbf{ROUGE-L}: En uzun ortak alt dizi. Cevap sıralamasını da dikkate alır.
+  \item \textbf{METEOR}: Stem + sinonim eşleşmesi. BLEU'dan daha esnek.
+  \item \textbf{CIDEr}: TF-IDF ağırlıklı n-gram — nadir ama önemli kelimeleri ödüllendirir.
+  \item \textbf{BERTScore}: Kontekstüel embedding benzerliği. Anlamsal doğruluğun en iyi göstergesi.
+  \item \textbf{F1}: Token örtüşmesi precision/recall harmonik ortalaması.
+\end{itemize}
+
+\textbf{Sonuç sıralaması}: Her metrikte PubMedBERT $>$ BioBERT $>$ BERT-Base. \\
+\textbf{En çarpıcı fark}: CIDEr'de PubMedBERT 0.183, BERT 0.078 — 2.3x üstün.\\
+\textbf{En güçlü argüman}: BERTScore'da tüm modeller 0.80+ — semantik anlama başarılı.
+
+\subsection{PubMedBERT Neden Üstün?}
+
+PubMedBERT, PubMed makaleleri üzerinde sıfırdan pre-train edilmiş — genel İngilizce corpus'u yok.
+Bu, biyomedikal terminoloji embedding'lerinin Gaussian gürültü altında daha \textbf{tutarlı geometri} koruduğu anlamına geliyor.
+BERT ve BioBERT'in pre-training verisi genel İngilizce içeriyor, bu da tıbbi embedding uzayını kirletiyor.
+
+% ============================================================
+\section{Olası Jüri Soruları ve Cevapları}
+% ============================================================
+
+\subsection*{S1: CIGN'in ileri geçişi nasıl koşullandırıyor?}
+
+İleri geçişte saf Gaussian gürültü eklemek yerine, gürültüyü multimodal füzyon embedding'i $f$'e doğru yanlılaştırıyoruz:
+\[
+\tilde{\varepsilon} = \sqrt{\bar{\alpha}_t} \cdot f + \sqrt{1-\bar{\alpha}_t} \cdot \varepsilon
+\]
+Burada $f$ soru ve görüntüden geliyor — cevaptan değil. Geri geçişte ise soru-görsel embedding'ini her adımda cevap embedding'iyle birleştiriyoruz. \textbf{Önemli not:} "Pure noise" derken cevap bilgisi yok demek istiyoruz. CIGN ise cevabı değil, soruyu ve görüntüyü taşıyor. İkisi çelişmiyor.
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+& Ne biliyor? \\
+\midrule
+Pure noise (cevap pozisyonu) & Cevap hakkında hiçbir şey \\
+CIGN ($f$ embedding) & Soru + görüntü — cevap değil \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{S2: Inference için neden DDIM kullandınız?}
+
+DDIM, yeniden eğitim gerektirmeden zaman adımlarını atlayan deterministik bir örnekleme yöntemi. 2000'den 200 adıma geçmek yaklaşık 10 kat hızlanma sağlıyor ve kalite kaybı çok az. Model 2000 adımla eğitildi, ama DDIM sayesinde inference'ta çok daha verimli örnekleme yapılıyor.
+
+\subsection*{S3: Partial noising modele tam olarak ne ipucu veriyor?}
+
+Partial noising'de cevap token'larının yalnızca bir kısmı gürültüleniyor, geri kalanı orijinal embedding olarak kalıyor. Model cevabın bir bölümünü zaten görüyor. Biz tüm cevap pozisyonlarını tamamen gürültülüyoruz — model başlangıçta cevap hakkında sıfır bilgiye sahip. Bu yüzden bizim kurulumumuz daha zor ama daha dürüst.
+
+\subsection*{S4: BERTScore zaten şişirilmiş bir metrik değil mi?}
+
+Haklı bir soru. BERTScore baseline'ları bağlamsal embedding'ler doğal olarak benzer olduğu için genellikle yüksek çıkar. Ancak önemli olan modeller arasındaki göreli sıralama: BERT 0.801, BioBERT 0.850, PubMedBERT 0.871 — ve bu sıralama diğer tüm metriklerde tutarlı. Mutlak değerden çok encoder'lar arasındaki fark anlamlı.
+
+\subsection*{S5: Ortalama cevap uzunluğu 2.9 token neden difüzyon için sorun?}
+
+Sınıflandırma tabanlı VQA'da kısa cevaplar kolay — sabit bir setten seçilir. Bizim modelimizde cevap 768 boyutlu sürekli embedding uzayında yaşıyor. Denoising sonrasında embedding matrisini kullanarak en yakın token'a yuvarlıyoruz (rounding). Çok kısa cevaplarda embedding'deki çok küçük bir sapma bile tamamen farklı bir token'a düşebilir. Hata payı çok az.
+
+\subsection*{S6: Neden PubMedBERT, BioBERT de biyomedikal değil mi?}
+
+BioBERT, Wikipedia ve BookCorpus üzerinde eğitilmiş genel BERT checkpoint'inden başlıyor, ardından biyomedikal metin üzerinde devam ediyor. Embedding uzayı hâlâ kısmen genel İngilizce tarafından şekillendirilmiş. PubMedBERT ise sıfırdan yalnızca PubMed makaleleriyle eğitildi — hiç genel İngilizce yok. Bu nedenle token embedding'leri tamamen biyomedikal ve gürültü altında çok daha tutarlı geometri koruyor.
+
+\subsection*{S7: Sqrt gürültü çizelgesi nedir, neden lineer veya cosine değil?}
+
+Sqrt çizelgesi başta yavaş, sona doğru hızlı gürültü ekler. Metin difüzyonu için bu kritik çünkü embedding'lerin $x_0$'a yakın bölgelerde ince token ayrımlarını öğrenmek için daha fazla zaman adımına ihtiyacı var. Lineer çizelgeler sinyali çok hızlı bozuyor. Sqrt çizelgesi Diffusion-LM tarafından sürekli metin embedding'leri için önerildi ve biz de bu tasarım tercihini takip ettik.
+
+\subsection*{S8: Neden klasik LLM değil, neden difüzyon modeli kullandınız?}
+
+\textbf{1. Klasik Med-VQA sınıflandırma yapıyor, üretim değil}
+
+Geleneksel Med-VQA sistemleri aslında LLM değil — sabit bir cevap seti üzerinden sınıflandırma yapıyor. "yes/no/abnormal/normal" gibi birkaç yüz etiketten birini seçiyor. Bu klinik açıdan kısıtlayıcı: eğitim setinde görülmemiş bir cevabı hiçbir zaman üretemez.
+
+\textbf{2. Autoregressive LLM (GPT tarzı) ile fark}
+
+Klasik autoregressive LLM token'ları soldan sağa tek tek üretir. Her token bir öncekine bağlıdır. İki temel sorun:
+\begin{itemize}
+  \item \textbf{Lokal hata yayılımı:} İlk token yanlışsa sonrakiler de bozulur.
+  \item \textbf{Global tutarlılık yok:} Model tüm cevabı bir bütün olarak göremez, sadece "şu ana kadar üretilenler" bağlamında karar verir.
+\end{itemize}
+
+Difüzyon modeli ise cevabı \textbf{tüm uzayda eş zamanlı} olarak denoising yaparak üretir. Tüm token pozisyonları her adımda birlikte güncellenir — global tutarlılık sağlar.
+
+\textbf{3. Tıbbi VQA için neden önemli?}
+
+Tıbbi cevaplar kısa ama hassas — "center-left" ile "center-right" arasındaki fark klinik olarak kritik olabilir. Difüzyon modeli cevabı bir bütün olarak öğrenir, autoregressive modeller bu tür kısa ama kesin cevaplarda pozisyonel bağlamı kaçırabilir.
+
+\textbf{Jüriye 2 cümlelik özet (İngilizce):}
+\begin{quote}
+\itshape
+Unlike autoregressive LLMs that generate tokens one by one, our diffusion model denoises the entire answer simultaneously — giving it global coherence. This is especially important in medical VQA where short but precise answers require all positions to be consistent with each other.
+\end{quote}
+
+% ============================================================
+\section{Notlar}
+% ============================================================
+
+Bu bölüme sunum hazırlığı sırasında eklenen ek notlar gelecek.
+
+\end{document}

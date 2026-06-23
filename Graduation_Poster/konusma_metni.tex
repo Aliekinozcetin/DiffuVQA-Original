@@ -1,0 +1,87 @@
+% ============================================================
+%  DiffGenMed-VQA — Poster Sunum Konuşma Metni
+%  CENG416 Graduation Poster — 2. Kolon (Method & Results)
+%  Hedef süre: ~1 dakika
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+
+\geometry{margin=2.5cm}
+\onehalfspacing
+
+\title{\textbf{DiffGenMed-VQA — Sunum Konuşma Metni}\\
+\large 2. Kolon: Method \& Architecture + Results}
+\author{Ali Ekin Özçetin \and Ahmet Barış Özel \and Mert Güner}
+\date{Haziran 2026}
+
+\begin{document}
+\maketitle
+
+% ============================================================
+\section*{English (speak this)}
+% ============================================================
+
+\begin{quote}
+\large
+
+We started with one research question:
+\textit{``Can a diffusion-based generative model produce accurate free-form answers to medical visual questions?''}
+
+In our architecture, images are encoded with CLIP, and we compared three language encoders — BERT, BioBERT, and PubMedBERT — to see how pre-training data affects answer quality.
+The signals from both encoders are combined in our Cross-Modal Fusion module with learned dynamic weights.
+Then, using CIGN, we condition both the forward and reverse diffusion with multimodal features to generate answers from pure noise.
+
+The table shows the key hyperparameters we used in training and sampling.
+
+We trained on Kvasir-VQA, a gastrointestinal endoscopy dataset — the split details are in the table on the poster.
+
+The scores may look low — but that is not the full picture.
+Unlike other diffusion models, we do not give any hint to the model.
+We apply full Gaussian noise, and the model generates answers completely from pure noise.
+This is harder, but more honest.
+
+Looking at the bar chart: all three models score above 0.80 on BERTScore, which measures semantic similarity.
+The lower scores on BLEU and ROUGE come from short answers — in a continuous embedding space, even a small rounding error can land on the wrong token.
+
+And PubMedBERT outperforms the others across all metrics.
+This confirms our hypothesis: an encoder pre-trained only on biomedical text handles Gaussian noise better.
+
+\end{quote}
+
+% ============================================================
+\section*{Türkçe (referans için)}
+% ============================================================
+
+\begin{quote}
+\large
+
+Tek bir araştırma sorusundan yola çıktık:
+\textit{``Difüzyon tabanlı üretici bir model, tıbbi görsel sorulara serbest form cevaplar üretebilir mi?''}
+
+Mimarimizde görüntüler CLIP ile encode edilirken, pre-training verisinin cevap kalitesini nasıl etkilediğini görmek için BERT, BioBERT ve PubMedBERT'i karşılaştırdık.
+Her iki encoder'dan gelen sinyaller, Cross-Modal Fusion modülümüzde öğrenilmiş dinamik ağırlıklarla birleştirildi.
+Ardından CIGN ile hem ileri hem geri difüzyonu multimodal özelliklerle koşullandırarak saf gürültüden cevap ürettik.
+
+Tabloda eğitim ve örneklemede kullandığımız temel hiperparametreler yer alıyor.
+
+Gastroenteroloji endoskopi veri seti olan Kvasir-VQA üzerinde eğittik — bölünme detayları posterdeki tabloda görülebilir.
+
+Skorlar düşük görünebilir — ama tam resim bu değil.
+Diğer difüzyon modellerinin aksine modele hiçbir ipucu vermiyoruz — hiç.
+Tam Gaussian gürültü uyguluyoruz ve model cevabı tamamen sıfırdan üretiyor.
+Bu daha zor ama daha dürüst bir kurulum.
+
+Bar chart'a bakıldığında: üç model de semantik benzerliği ölçen BERTScore'da 0.80 üzerinde çıkıyor.
+BLEU ve ROUGE'daki düşük skorlar ise kısa cevaplardan kaynaklanıyor — sürekli embedding uzayında küçük bir rounding hatası yanlış token'a düşürebilir.
+
+PubMedBERT tüm metriklerde diğerlerinden üstün performans gösterdi.
+Bu hipotezimizi doğruluyor: yalnızca biyomedikal metinle pre-train edilmiş bir encoder, Gaussian gürültüyle çok daha iyi başa çıkıyor.
+
+\end{quote}
+
+\end{document}
